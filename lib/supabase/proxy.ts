@@ -25,10 +25,31 @@ export async function updateSession(request: NextRequest) {
                 },
             },
         }
-    )
+    );
 
-    // refreshing the auth token
-    await supabase.auth.getUser()
+    // 1. Refresh token และดึงข้อมูล User
+    const { data: { user } } = await supabase.auth.getUser();
 
-    return supabaseResponse
+    // 2. กำหนด Path ที่ต้องการควบคุม
+    const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
+        request.nextUrl.pathname.startsWith('/signup')
+    const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard') ||
+        request.nextUrl.pathname.startsWith('/board')
+
+    // 🛡️ ถ้าไม่มี User และพยายามเข้าหน้าส่วนตัว -> ส่งไปหน้า Login
+    if (!user && isDashboardPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/login'
+        return NextResponse.redirect(url);
+    }
+
+    // 🛡️ ถ้า Login แล้ว แต่จะเข้าหน้า Login/Signup -> ส่งไป Dashboard
+    if (user && isAuthPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url);
+    }
+
+
+    return supabaseResponse;
 }

@@ -82,7 +82,7 @@ export default async function BoardPage({ params }: PageProps) {
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Navigation */}
-            <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
+            {/* <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
                     <div className="flex items-center gap-3">
                         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -102,7 +102,7 @@ export default async function BoardPage({ params }: PageProps) {
                         </a>
                     </div>
                 </div>
-            </nav>
+            </nav> */}
 
             {/* Board Header */}
             <div className="max-w-7xl mx-auto px-6 pt-8 pb-4">

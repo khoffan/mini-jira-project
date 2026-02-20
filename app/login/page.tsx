@@ -1,8 +1,34 @@
 'use client' // แนะนำให้ใช้ Client Component สำหรับหน้า Form เพื่อจัดการ UI State
 
 import { login, signup } from './actions'
+import { useAuthStore, UserProdile } from '@/store/authStore'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export default function LoginPage() {
+    const router = useRouter()
+    const { setUser } = useAuthStore()
+
+    const handleLogin = async (formData: FormData) => {
+        const result = await login(formData)
+
+        if (result.success && result.data) {
+            // ✨ อัปเดต Zustand ทันทีที่นี่! ไม่ต้องรอ AuthInitializer
+            const user: UserProdile = {
+                uid: result.data.uid,
+                email: result.data.email ?? "",
+                name: result.data.name ?? "",
+                image: result.data.image ?? ""
+            }
+            setUser(user)
+            toast.success("เข้าสู่ระบบสำเร็จ")
+            // จากนั้นค่อยพาไปหน้า Dashboard
+            router.push('/dashboard')
+            router.refresh()
+        } else {
+            toast.error(result.error)
+        }
+    }
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
@@ -47,7 +73,7 @@ export default function LoginPage() {
                     {/* Buttons */}
                     <div className="flex flex-col gap-3">
                         <button
-                            formAction={login}
+                            formAction={handleLogin}
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-blue-200"
                         >
                             Log in

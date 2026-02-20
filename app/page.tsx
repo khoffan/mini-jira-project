@@ -3,7 +3,7 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation */}
+      {/* Navigation
       <nav className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -22,7 +22,7 @@ export default function Home() {
             เริ่มใช้งานฟรี
           </Link>
         </div>
-      </nav>
+      </nav> */}
 
       {/* Hero Section */}
       <main className="max-w-6xl mx-auto pt-20 pb-16 px-6 text-center">

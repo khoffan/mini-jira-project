@@ -10,6 +10,13 @@ export default async function DashboardPage() {
         data: { user: authUser },
     } = await supabase.auth.getUser()
 
+    let profile = null;
+    if (authUser) {
+        profile = await prisma.user.findUnique({
+            where: { uid: authUser.id },
+        })
+    }
+
     if (!authUser) {
         redirect('/login')
     }
@@ -34,7 +41,7 @@ export default async function DashboardPage() {
     return (
         <div className="min-h-screen bg-slate-50">
             {/* Navigation */}
-            <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
+            {/* <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -52,7 +59,7 @@ export default async function DashboardPage() {
                         </a>
                     </div>
                 </div>
-            </nav>
+            </nav> */}
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-6 py-10">

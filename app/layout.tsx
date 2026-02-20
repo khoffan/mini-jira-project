@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import { Geist, Geist_Mono } from "next/font/google";
+import AuthInitializer from "@/components/providers/authInitailize";
 import "./globals.css";
+import Navbar from "@/components/layout/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +30,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AuthInitializer />
+        <div className="min-h-screen flex flex-col">
+          {/* 2. Navbar จะเรียกใช้ useAuthState ได้ทันทีหลังจาก Initializer ทำงาน */}
+          <Navbar />
+
+          {children}
+          <Toaster richColors position="top-right" />
+        </div>
       </body>
     </html>
   );

@@ -16,15 +16,21 @@ export async function login(formData: FormData) {
     }
 
 
-    const { error } = await supabase.auth.signInWithPassword(data)
+    const { data: authData, error } = await supabase.auth.signInWithPassword(data)
 
-
-    if (error) {
-        redirect('/error')
+    if (error) return {
+        error: error.message
     }
 
-    revalidatePath('/', 'layout')
-    redirect('/dashboard')
+    return {
+        success: true,
+        data: {
+            uid: authData.user.id,
+            email: authData.user.email,
+            name: authData.user.user_metadata.full_name || '',
+            image: authData.user.user_metadata.avatar_url || ''
+        }
+    }
 }
 
 export async function signup(formData: FormData) {
@@ -56,4 +62,11 @@ export async function signup(formData: FormData) {
 
     revalidatePath('/', 'layout')
     redirect('/account')
+}
+
+export async function logout() {
+    const supabase = await createClient()
+    await supabase.auth.signOut()
+    revalidatePath('/', 'layout')
+    redirect('/login')
 }
