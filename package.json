@@ -6,14 +6,19 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev --name init_mini_jira",
+    "prisma:push": "prisma db push"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "^7.4.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
+    "@xyflow/react": "^12.10.1",
     "dotenv": "^17.3.1",
+    "lucide-react": "^0.575.0",
     "next": "16.1.6",
     "pg": "^8.18.0",
     "react": "19.2.3",

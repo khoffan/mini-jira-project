@@ -31,7 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthInitializer />
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
           {/* 2. Navbar จะเรียกใช้ useAuthState ได้ทันทีหลังจาก Initializer ทำงาน */}
           <Navbar />
 

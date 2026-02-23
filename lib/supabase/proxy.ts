@@ -33,8 +33,15 @@ export async function updateSession(request: NextRequest) {
     // 2. กำหนด Path ที่ต้องการควบคุม
     const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
         request.nextUrl.pathname.startsWith('/signup')
-    const isDashboardPage = request.nextUrl.pathname.startsWith('/dashboard') ||
+    const isDashboardPage = request.nextUrl.pathname.startsWith('/workspace') ||
         request.nextUrl.pathname.startsWith('/board')
+
+    // ถ้ามี user แล้ว navigate to /dashboard ทันที
+    if (user && !isDashboardPage) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/workspace'
+        return NextResponse.redirect(url);
+    }
 
     // 🛡️ ถ้าไม่มี User และพยายามเข้าหน้าส่วนตัว -> ส่งไปหน้า Login
     if (!user && isDashboardPage) {
@@ -46,7 +53,7 @@ export async function updateSession(request: NextRequest) {
     // 🛡️ ถ้า Login แล้ว แต่จะเข้าหน้า Login/Signup -> ส่งไป Dashboard
     if (user && isAuthPage) {
         const url = request.nextUrl.clone();
-        url.pathname = '/dashboard'
+        url.pathname = '/workspace'
         return NextResponse.redirect(url);
     }
 

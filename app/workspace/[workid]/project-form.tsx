@@ -1,26 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { createBoardAction, updateBoardAction } from './actions'
+import { createProjectAction, updateProjectAction } from './actions'
 import { useRouter } from 'next/navigation'
 
-interface Board {
+interface Project {
     id: string
     title: string
     description: string
 }
 
-interface BoardFormProps {
-    userId: string
-    board?: Board | null
+interface ProjectFormProps {
+    workspaceId: string
+    project?: Project | null
     onClose: () => void
 }
 
-export default function BoardForm({ userId, board, onClose }: BoardFormProps) {
+export default function ProjectForm({ workspaceId, project, onClose }: ProjectFormProps) {
     const router = useRouter()
-    const isEditing = !!board
-    const [title, setTitle] = useState(board?.title || '')
-    const [description, setDescription] = useState(board?.description || '')
+    const isEditing = !!project
+    const [title, setTitle] = useState(project?.title || '')
+    const [description, setDescription] = useState(project?.description || '')
     const [loading, setLoading] = useState(false)
 
     async function handleSubmit(e: React.FormEvent) {
@@ -29,15 +29,15 @@ export default function BoardForm({ userId, board, onClose }: BoardFormProps) {
 
         setLoading(true)
         try {
-            if (isEditing && board) {
-                await updateBoardAction({ id: board.id, title, description })
+            if (isEditing && project) {
+                await updateProjectAction({ id: project.id, title, description, workspaceId })
             } else {
-                await createBoardAction({ title, description, userId })
+                await createProjectAction({ title, description, workspaceId })
             }
             router.refresh()
             onClose()
         } catch (error) {
-            console.error('Failed to save board:', error)
+            console.error('Failed to save project:', error)
         } finally {
             setLoading(false)
         }
@@ -49,21 +49,21 @@ export default function BoardForm({ userId, board, onClose }: BoardFormProps) {
                 {/* Header */}
                 <div className="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-indigo-50">
                     <h2 className="text-xl font-bold text-slate-900">
-                        {isEditing ? 'แก้ไขบอร์ด' : 'สร้างบอร์ดใหม่'}
+                        {isEditing ? 'แก้ไขโปรเจกต์' : 'สร้างโปรเจกต์ใหม่'}
                     </h2>
                     <p className="text-sm text-slate-500 mt-1">
-                        {isEditing ? 'อัปเดตข้อมูลบอร์ดของคุณ' : 'กรอกข้อมูลเพื่อสร้างบอร์ดใหม่'}
+                        {isEditing ? 'อัปเดตข้อมูลโปรเจกต์ของคุณ' : 'กรอกข้อมูลเพื่อสร้างโปรเจกต์ใหม่'}
                     </p>
                 </div>
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                     <div className="space-y-1.5">
-                        <label htmlFor="board-title" className="text-sm font-medium text-slate-700">
-                            ชื่อบอร์ด
+                        <label htmlFor="project-title" className="text-sm font-medium text-slate-700">
+                            ชื่อโปรเจกต์
                         </label>
                         <input
-                            id="board-title"
+                            id="project-title"
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
@@ -74,14 +74,14 @@ export default function BoardForm({ userId, board, onClose }: BoardFormProps) {
                     </div>
 
                     <div className="space-y-1.5">
-                        <label htmlFor="board-description" className="text-sm font-medium text-slate-700">
+                        <label htmlFor="project-description" className="text-sm font-medium text-slate-700">
                             รายละเอียด
                         </label>
                         <textarea
-                            id="board-description"
+                            id="project-description"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            placeholder="อธิบายจุดประสงค์ของบอร์ดนี้..."
+                            placeholder="อธิบายจุดประสงค์ของโปรเจกต์นี้..."
                             rows={3}
                             className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-slate-800"
                             required
@@ -110,7 +110,7 @@ export default function BoardForm({ userId, board, onClose }: BoardFormProps) {
                                     </svg>
                                     กำลังบันทึก...
                                 </span>
-                            ) : isEditing ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างบอร์ด'}
+                            ) : isEditing ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างโปรเจกต์'}
                         </button>
                     </div>
                 </form>

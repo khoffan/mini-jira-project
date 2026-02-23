@@ -14,39 +14,130 @@ datasource db {
 }
 
 model User {
-  uid      String   @id
-  email    String   @unique
-  name     String?
-  image    String?
-  boards   Board[]
-  createAt DateTime @default(now())
-  updateAt DateTime @updatedAt
+  uid            String          @id
+  email          String          @unique
+  name           String?
+  image          String?
+  createAt       DateTime        @default(now())
+  updateAt       DateTime        @updatedAt
+  projectMembers ProjectMember[]
+  tasks          Task[]
+  comments       Comment[]
+  workspaces     Workspace[]
 }
 
-model Todo {
-  id          String     @id @default(uuid())
+model Workspace {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  owner          User?           @relation(fields: [ownerId], references: [uid])
+  ownerId        String?
+  inviteCode     String          @unique @default(cuid())
+  createAt       DateTime        @default(now())
+  updateAt       DateTime        @updatedAt
+  projectMembers ProjectMember[]
+  projects       Project[]
+}
+
+model Project {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
+  createAt    DateTime   @default(now())
+  updateAt    DateTime   @updatedAt
+  categories  Category[]
+  boards      Board[]
+}
+
+model Board {
+  id        String  @id @default(cuid())
+  title     String
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // ตำแหน่งบน Canvas ของ Board นี้
+  positionX Float @default(0)
+  positionY Float @default(0)
+
+  tasks Task[] // Task จะไปรวมกันอยู่ในแต่ละ Board
+
+  // การเชื่อมโยงระหว่าง Board (Dependencies)
+  sourceOf BoardEdge[] @relation("sourceBoard")
+  targetOf BoardEdge[] @relation("targetBoard")
+
+  createdAt DateTime @default(now())
+}
+
+model BoardEdge {
+  id            String @id @default(cuid())
+  sourceBoardId String
+  targetBoardId String
+  sourceBoard   Board  @relation("sourceBoard", fields: [sourceBoardId], references: [id], onDelete: Cascade)
+  targetBoard   Board  @relation("targetBoard", fields: [targetBoardId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id          String     @id @default(cuid())
   title       String
   description String
   isCompleted Boolean    @default(false)
-  status      TodoStatus @default(TODO)
+  status      TaskStatus @default(TODO)
+  order       Float      @default(0)
   createAt    DateTime   @default(now())
   updateAt    DateTime   @updatedAt
+  category    Category?  @relation(fields: [categoryId], references: [id])
+  user        User?      @relation(fields: [userId], references: [uid])
+  categoryId  String?
+  userId      String?
+  comments    Comment[]
   board       Board?     @relation(fields: [boardId], references: [id])
   boardId     String?
 }
 
-model Board {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  todos       Todo[]
-  user        User?    @relation(fields: [userId], references: [uid])
+model ProjectMember {
+  id          String     @id @default(cuid())
+  user        User?      @relation(fields: [userId], references: [uid])
   userId      String?
-  createAt    DateTime @default(now())
-  updateAt    DateTime @updatedAt
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id])
+  workspaceId String?
+  role        Role       @default(VIEWER)
+  createAt    DateTime   @default(now())
+  updateAt    DateTime   @updatedAt
+
+  @@unique([workspaceId, userId])
 }
 
-enum TodoStatus {
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  project   Project  @relation(fields: [projectId], references: [id])
+  projectId String
+  createAt  DateTime @default(now())
+  updateAt  DateTime @updatedAt
+  tasks     Task[]
+}
+
+model Comment {
+  id       String   @id @default(cuid())
+  content  String
+  createAt DateTime @default(now())
+  updateAt DateTime @updatedAt
+  task     Task     @relation(fields: [taskId], references: [id])
+  taskId   String
+  user     User     @relation(fields: [userId], references: [uid])
+  userId   String
+}
+
+enum Role {
+  EDITOR
+  VIEWER
+  ADMIN
+}
+
+enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE

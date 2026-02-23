@@ -1,15 +1,15 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import prisma from '@/lib/prisma/prisma_conf'
-import TodoColumn from './todo-column'
+import TodoColumn from '../todo-column'
 import Link from 'next/link'
 
 interface PageProps {
-    params: Promise<{ boardId: string }>
+    params: Promise<{ workid: string; projectId: string; boardId: string }>
 }
 
-export default async function BoardPage({ params }: PageProps) {
-    const { boardId } = await params
+export default async function TaskPage({ params }: PageProps) {
+    const { workid, projectId, boardId } = await params
     const supabase = await createClient()
 
     const {
@@ -20,30 +20,49 @@ export default async function BoardPage({ params }: PageProps) {
         redirect('/login')
     }
 
+    // Verify workspace ownership
+    const workspace = await prisma.workspace.findUnique({
+        where: { id: workid },
+    })
+
+    if (!workspace || workspace.ownerId !== authUser.id) {
+        notFound()
+    }
+
+    // Fetch project
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+    })
+
+    if (!project || project.workspaceId !== workid) {
+        notFound()
+    }
+
+    // Fetch board with its tasks
     const board = await prisma.board.findUnique({
         where: { id: boardId },
         include: {
-            todos: {
+            tasks: {
                 orderBy: { createAt: 'asc' },
             },
         },
     })
 
-    if (!board || board.userId !== authUser.id) {
+    if (!board || board.projectId !== projectId) {
         notFound()
     }
 
     // Serialize dates for client components
-    const serializedTodos = board.todos.map((todo) => ({
-        ...todo,
-        createAt: todo.createAt.toISOString(),
-        updateAt: todo.updateAt.toISOString(),
+    const serializedTasks = board.tasks.map((task) => ({
+        ...task,
+        createAt: task.createAt.toISOString(),
+        updateAt: task.updateAt.toISOString(),
     }))
 
     const todosByStatus = {
-        TODO: serializedTodos.filter((t) => t.status === 'TODO'),
-        IN_PROGRESS: serializedTodos.filter((t) => t.status === 'IN_PROGRESS'),
-        DONE: serializedTodos.filter((t) => t.status === 'DONE'),
+        TODO: serializedTasks.filter((t) => t.status === 'TODO'),
+        IN_PROGRESS: serializedTasks.filter((t) => t.status === 'IN_PROGRESS'),
+        DONE: serializedTasks.filter((t) => t.status === 'DONE'),
     }
 
     const columns = [
@@ -81,34 +100,11 @@ export default async function BoardPage({ params }: PageProps) {
 
     return (
         <div className="min-h-screen bg-slate-50">
-            {/* Navigation */}
-            {/* <nav className="bg-white border-b border-slate-200 sticky top-0 z-40">
-                <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16">
-                    <div className="flex items-center gap-3">
-                        <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                                <span className="text-white font-bold text-xl">M</span>
-                            </div>
-                            <span className="text-xl font-bold text-slate-900 tracking-tight">Mini Jira</span>
-                        </Link>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-slate-500">{authUser.email}</span>
-                        <a
-                            href="/account"
-                            className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md"
-                        >
-                            {authUser.email?.charAt(0).toUpperCase()}
-                        </a>
-                    </div>
-                </div>
-            </nav> */}
-
-            {/* Board Header */}
-            <div className="max-w-7xl mx-auto px-6 pt-8 pb-4">
+            {/* Task Header */}
+            <div className="app-container pt-6 sm:pt-8 pb-4">
                 <div className="flex items-center gap-3 mb-2">
                     <Link
-                        href="/dashboard"
+                        href={`/workspace/${workid}/${projectId}`}
                         className="text-slate-400 hover:text-blue-600 transition-colors"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -119,14 +115,14 @@ export default async function BoardPage({ params }: PageProps) {
                         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
                             {board.title}
                         </h1>
-                        <p className="text-sm text-slate-500">{board.description}</p>
+                        <p className="text-sm text-slate-500">{project.title} · จัดการ Task</p>
                     </div>
                 </div>
             </div>
 
             {/* Kanban Columns */}
-            <main className="max-w-7xl mx-auto px-6 pb-10">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <main className="app-container pb-8 sm:pb-10">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5">
                     {columns.map((col) => (
                         <TodoColumn
                             key={col.status}

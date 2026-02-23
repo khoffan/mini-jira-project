@@ -13,21 +13,21 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const boards = await prisma.board.findMany({
-            where: { userId },
+        const workspaces = await prisma.workspace.findMany({
+            where: { ownerId: userId },
             include: {
                 _count: {
-                    select: { todos: true },
+                    select: { projects: true },
                 },
             },
             orderBy: { createAt: "desc" },
         })
 
-        return NextResponse.json(boards)
+        return NextResponse.json(workspaces)
     } catch (error) {
-        console.error("Failed to fetch boards:", error)
+        console.error("Failed to fetch workspaces:", error)
         return NextResponse.json(
-            { error: "Failed to fetch boards" },
+            { error: "Failed to fetch workspaces" },
             { status: 500 }
         )
     }

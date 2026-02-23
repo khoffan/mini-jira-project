@@ -13,18 +13,18 @@ export async function createTodoAction({
     boardId: string
 }) {
     try {
-        const todo = await prisma.todo.create({
+        const task = await prisma.task.create({
             data: {
                 title,
                 description,
                 boardId,
             },
         })
-        revalidatePath(`/dashboard/board/${boardId}`)
-        return { success: true, todo }
+        revalidatePath(`/workspace`)
+        return { success: true, todo: task }
     } catch (error) {
-        console.error("Failed to create todo:", error)
-        return { success: false, error: "Failed to create todo" }
+        console.error("Failed to create task:", error)
+        return { success: false, error: "Failed to create task" }
     }
 }
 
@@ -40,15 +40,15 @@ export async function updateTodoAction({
     boardId: string
 }) {
     try {
-        const todo = await prisma.todo.update({
+        const task = await prisma.task.update({
             where: { id },
             data: { title, description },
         })
-        revalidatePath(`/dashboard/board/${boardId}`)
-        return { success: true, todo }
+        revalidatePath(`/workspace`)
+        return { success: true, todo: task }
     } catch (error) {
-        console.error("Failed to update todo:", error)
-        return { success: false, error: "Failed to update todo" }
+        console.error("Failed to update task:", error)
+        return { success: false, error: "Failed to update task" }
     }
 }
 
@@ -62,14 +62,14 @@ export async function updateTodoStatusAction({
     boardId: string
 }) {
     try {
-        const todo = await prisma.todo.update({
+        const task = await prisma.task.update({
             where: { id },
             data: { status },
         })
-        revalidatePath(`/dashboard/board/${boardId}`)
-        return { success: true, todo }
+        revalidatePath(`/workspace`)
+        return { success: true, todo: task }
     } catch (error) {
-        console.error("Failed to update todo status:", error)
+        console.error("Failed to update task status:", error)
         return { success: false, error: "Failed to update status" }
     }
 }
@@ -82,13 +82,13 @@ export async function deleteTodoAction({
     boardId: string
 }) {
     try {
-        await prisma.todo.delete({
+        await prisma.task.delete({
             where: { id },
         })
-        revalidatePath(`/dashboard/board/${boardId}`)
+        revalidatePath(`/workspace`)
         return { success: true }
     } catch (error) {
-        console.error("Failed to delete todo:", error)
-        return { success: false, error: "Failed to delete todo" }
+        console.error("Failed to delete task:", error)
+        return { success: false, error: "Failed to delete task" }
     }
 }
