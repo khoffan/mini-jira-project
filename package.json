@@ -12,15 +12,13 @@
     "prisma:push": "prisma db push"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.1",
-    "@prisma/client": "^7.4.1",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.97.0",
     "@xyflow/react": "^12.10.1",
-    "dotenv": "^17.3.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
+    "firebase": "^12.12.1",
     "lucide-react": "^0.575.0",
+    "mongoose": "^9.5.0",
     "next": "16.1.6",
-    "pg": "^8.18.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "sonner": "^2.0.7",
@@ -30,12 +28,10 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.33",
-    "@types/pg": "^8.16.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "prisma": "^7.4.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
