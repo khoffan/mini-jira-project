@@ -1,158 +1,288 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { createTodoAction, updateTodoAction } from './actions'
-import { useRouter } from 'next/navigation'
-import { Calendar, Flag, AlertCircle, CheckCircle2, Circle, Clock } from 'lucide-react'
-import { Priority, type ITask, TaskStatus } from '@/lib/types'
+import { useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useRouter } from "next/navigation";
+import { CheckSquare, Clock } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { createTodoAction, updateTodoAction } from "./actions";
+import type { Priority, ITask, TaskStatus } from "@/lib/types";
 
+// ─── Zod Schema ───────────────────────────────────────────────────────────────
+const todoSchema = z.object({
+  title: z
+    .string()
+    .min(1, "กรุณาระบุหัวข้องาน")
+    .max(150, "หัวข้องานต้องไม่เกิน 150 ตัวอักษร"),
+  description: z
+    .string()
+    .max(500, "รายละเอียดต้องไม่เกิน 500 ตัวอักษร")
+    .optional(),
+  status: z.enum(["TODO", "IN_PROGRESS", "DONE"], {
+    message: "กรุณาเลือกสถานะ",
+  }),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"], {
+    message: "กรุณาเลือกระดับความสำคัญ",
+  }),
+  dueDate: z.string().optional(),
+});
+
+type TodoFormValues = z.infer<typeof todoSchema>;
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 interface TodoFormProps {
-    boardId: string
-    todo?: Partial<ITask> | null
-    onClose: () => void
+  open: boolean;
+  onClose: () => void;
+  boardId: string;
+  todo?: Partial<ITask> | null;
 }
 
-export default function TodoForm({ boardId, todo, onClose }: TodoFormProps) {
-    const router = useRouter()
-    const isEditing = !!todo
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function TodoForm({
+  open,
+  onClose,
+  boardId,
+  todo,
+}: TodoFormProps) {
+  const router = useRouter();
+  const isEditing = !!todo;
+  const [isPending, startTransition] = useTransition();
 
-    // States ตาม Model ใหม่
-    const [title, setTitle] = useState(todo?.title || '')
-    const [description, setDescription] = useState(todo?.description || '')
-    const [status, setStatus] = useState<TaskStatus>(todo?.status || 'TODO')
-    const [priority, setPriority] = useState<Priority>(todo?.priority || 'MEDIUM')
-    const [dueDate, setDueDate] = useState(todo?.dueDate ? new Date(todo.dueDate).toISOString().split('T')[0] : '')
+  const form = useForm<TodoFormValues>({
+    resolver: zodResolver(todoSchema),
+    defaultValues: {
+      title: todo?.title ?? "",
+      description: todo?.description ?? "",
+      status: (todo?.status as TaskStatus) ?? "TODO",
+      priority: (todo?.priority as Priority) ?? "MEDIUM",
+      dueDate: todo?.dueDate
+        ? new Date(todo.dueDate).toISOString().split("T")[0]
+        : "",
+    },
+  });
 
-    const [loading, setLoading] = useState(false)
+  function onSubmit(values: TodoFormValues) {
+    startTransition(async () => {
+      const payload = {
+        title: values.title,
+        description: values.description,
+        status: values.status as TaskStatus,
+        priority: values.priority as Priority,
+        dueDate: values.dueDate ? new Date(values.dueDate) : null,
+        boardId,
+      };
 
-    async function handleSubmit(e: React.FormEvent) {
-        e.preventDefault()
-        if (!title.trim()) return
+      if (isEditing && todo?.id) {
+        await updateTodoAction({ id: todo.id, ...payload });
+      } else {
+        await createTodoAction(payload);
+      }
+      router.refresh();
+      onClose();
+    });
+  }
 
-        setLoading(true)
-        try {
-            const payload = {
-                title,
-                description,
-                status,
-                priority,
-                dueDate: dueDate ? new Date(dueDate) : null,
-                boardId
-            }
-
-            if (isEditing && todo?.id) {
-                await updateTodoAction({ id: todo.id, ...payload })
-            } else {
-                await createTodoAction(payload)
-            }
-
-            router.refresh()
-            onClose()
-        } catch (error) {
-            console.error('Failed to save todo:', error)
-        } finally {
-            setLoading(false)
-        }
+  function handleOpenChange(isOpen: boolean) {
+    if (!isOpen) {
+      form.reset();
+      onClose();
     }
+  }
 
-    return (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
-
-                {/* Header */}
-                <div className="px-8 py-6 border-b border-slate-50 bg-linear-to-r from-blue-50/50 to-indigo-50/50">
-                    <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                        {isEditing ? 'แก้ไขรายละเอียดงาน' : 'สร้างงานใหม่'}
-                    </h2>
-                    <p className="text-sm text-slate-500 mt-1">จัดการงานของคุณให้เป็นระบบด้วยพารามิเตอร์ที่ชัดเจน</p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    {/* Title */}
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">หัวข้องาน</label>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="เช่น ออกแบบหน้า Dashboard"
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all font-medium"
-                            required
-                        />
-                    </div>
-
-                    {/* Status & Priority (Two Columns) */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">สถานะ</label>
-                            <select
-                                value={status}
-                                onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {['TODO', 'IN_PROGRESS', 'DONE'].map(s => (
-                                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">ความสำคัญ</label>
-                            <select
-                                value={priority}
-                                onChange={(e) => setPriority(e.target.value as Priority)}
-                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                {['LOW', 'MEDIUM', 'HIGH', 'URGENT'].map(p => (
-                                    <option key={p} value={p}>{p}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Due Date */}
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1 flex items-center gap-1">
-                            <Clock size={12} /> กำหนดส่ง (Due Date)
-                        </label>
-                        <input
-                            type="date"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-400 ml-1">รายละเอียด</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="ระบุรายละเอียดเพิ่มเติมของงานนี้..."
-                            rows={3}
-                            className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all resize-none"
-                        />
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-6 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                            ยกเลิก
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={loading || !title.trim()}
-                            className="px-8 py-3 bg-slate-900 hover:bg-black text-white text-sm font-bold rounded-2xl transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
-                        >
-                            {loading ? 'กำลังประมวลผล...' : isEditing ? 'อัปเดตงาน' : 'สร้างงาน'}
-                        </button>
-                    </div>
-                </form>
+  return (
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-lg flex flex-col p-0 gap-0"
+      >
+        {/* Header */}
+        <SheetHeader className="px-6 py-5 border-b">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <CheckSquare className="h-5 w-5" />
             </div>
-        </div>
-    )
+            <div>
+              <SheetTitle>{isEditing ? "แก้ไขงาน" : "สร้างงานใหม่"}</SheetTitle>
+              <SheetDescription>
+                {isEditing
+                  ? "แก้ไขรายละเอียดของงานนี้"
+                  : "เพิ่มงานใหม่เข้าใน board"}
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
+
+        {/* Body */}
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col flex-1 overflow-hidden"
+          >
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+              {/* Title */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>หัวข้องาน *</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="เช่น ออกแบบหน้า Dashboard"
+                        autoFocus
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Status + Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>สถานะ *</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="เลือกสถานะ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="TODO">📋 To Do</SelectItem>
+                            <SelectItem value="IN_PROGRESS">
+                              🔄 In Progress
+                            </SelectItem>
+                            <SelectItem value="DONE">✅ Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ความสำคัญ *</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="เลือกความสำคัญ" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LOW">🟦 Low</SelectItem>
+                            <SelectItem value="MEDIUM">🟨 Medium</SelectItem>
+                            <SelectItem value="HIGH">🟧 High</SelectItem>
+                            <SelectItem value="URGENT">🚨 Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Due Date */}
+              <FormField
+                control={form.control}
+                name="dueDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      กำหนดส่ง
+                    </FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>รายละเอียด</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="รายละเอียดเพิ่มเติมของงานนี้..."
+                        className="resize-none"
+                        rows={4}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Footer */}
+            <SheetFooter className="px-6 py-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+                disabled={isPending}
+              >
+                ยกเลิก
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending
+                  ? "กำลังบันทึก..."
+                  : isEditing
+                    ? "บันทึกการเปลี่ยนแปลง"
+                    : "สร้างงาน"}
+              </Button>
+            </SheetFooter>
+          </form>
+        </Form>
+      </SheetContent>
+    </Sheet>
+  );
 }

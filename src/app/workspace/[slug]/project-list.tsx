@@ -1,11 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import ProjectForm from "./project-form";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Calendar,
+  Layers,
+  FolderOpen,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import ProjectForm from "./project-form";
 import { deleteProjectAction } from "./actions";
-import Swal from "sweetalert2";
-import { INestedProject, IProject } from "@/lib/types";
+import type { INestedProject, ProjectStatus, Priority } from "@/lib/types";
 
 interface ProjectListProps {
   projects: INestedProject[];
@@ -13,26 +32,54 @@ interface ProjectListProps {
   slug: string;
 }
 
-const gradients = [
-  "from-blue-500 to-indigo-600",
-  "from-violet-500 to-purple-600",
-  "from-cyan-500 to-blue-500",
-  "from-teal-500 to-emerald-500",
-  "from-rose-500 to-pink-500",
-  "from-amber-500 to-orange-500",
+const accentColors = [
+  "bg-indigo-500",
+  "bg-violet-500",
+  "bg-cyan-500",
+  "bg-emerald-500",
+  "bg-rose-500",
+  "bg-amber-500",
 ];
 
-export default function ProjectList({ projects, workspaceId, slug }: ProjectListProps) {
-  const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState<INestedProject | null>(null);
-
-  function handleEdit(project: INestedProject) {
-    setEditingProject(project);
-    setShowForm(true);
+const statusConfig: Record<
+  ProjectStatus,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline";
   }
+> = {
+  ACTIVE: { label: "Active", variant: "default" },
+  PAUSED: { label: "Paused", variant: "secondary" },
+  COMPLETED: { label: "Completed", variant: "outline" },
+  ARCHIVED: { label: "Archived", variant: "secondary" },
+};
+
+const priorityConfig: Record<Priority, { label: string; color: string }> = {
+  LOW: { label: "Low", color: "text-sky-600" },
+  MEDIUM: { label: "Medium", color: "text-amber-600" },
+  HIGH: { label: "High", color: "text-orange-600" },
+  URGENT: { label: "Urgent", color: "text-red-600" },
+};
+
+export default function ProjectList({
+  projects,
+  workspaceId,
+  slug,
+}: ProjectListProps) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [editingProject, setEditingProject] = useState<INestedProject | null>(
+    null,
+  );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function handleCreate() {
     setEditingProject(null);
+    setShowForm(true);
+  }
+
+  function handleEdit(project: INestedProject) {
+    setEditingProject(project);
     setShowForm(true);
   }
 
@@ -41,201 +88,165 @@ export default function ProjectList({ projects, workspaceId, slug }: ProjectList
     setEditingProject(null);
   }
 
-  function handleDelete(projectId: string) {
-    Swal.fire({
-      title: "คุณต้องการลบโปรเจกต์นี้หรือไม่?",
-      text: "การลบโปรเจกต์นี้จะลบงานทั้งหมดในโปรเจกต์นี้",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
-      confirmButtonText: "ใช่, ลบ!",
-      cancelButtonText: "ยกเลิก",
-    }).then((result) => {
-      if (result.isConfirmed) {
-        deleteProjectAction({ id: projectId, workspaceId });
-      }
-      Swal.close();
-    });
+  async function handleDelete(projectId: string, projectTitle: string) {
+    if (
+      !confirm(
+        `ยืนยันการลบโปรเจกต์ "${projectTitle}"?\nการลบจะลบ board และ task ทั้งหมดในโปรเจกต์นี้`,
+      )
+    )
+      return;
+    setDeletingId(projectId);
+    try {
+      await deleteProjectAction({ id: projectId, workspaceId });
+      toast.success("ลบโปรเจกต์เรียบร้อยแล้ว");
+      router.refresh();
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการลบโปรเจกต์");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
-  const projectBoardCount = (project: INestedProject) => {
-    return project.boards.length + 1;
-  };
-
   return (
-    <div>
+    <>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            โปรเจกต์
-          </h1>
-          <p className="text-sm sm:text-base text-slate-500 mt-1">
-            จัดการโปรเจกต์และติดตามงานทั้งหมดของคุณ
+          <h1 className="text-2xl font-bold tracking-tight">โปรเจกต์</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {projects.length > 0
+              ? `${projects.length} โปรเจกต์`
+              : "ยังไม่มีโปรเจกต์"}
           </p>
         </div>
-        <button
-          onClick={handleCreate}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-blue-200/50 hover:-translate-y-0.5 w-full sm:w-auto"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          สร้างโปรเจกต์ใหม่
-        </button>
+        <Button onClick={handleCreate} className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          สร้างโปรเจกต์
+        </Button>
       </div>
-      {/* Project Grid */}
+
+      {/* Empty state */}
       {projects.length === 0 ? (
-        <div className="text-center py-16 sm:py-20">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-linear-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6">
-            <svg
-              className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z"
-              />
-            </svg>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
+            <FolderOpen className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-slate-700 mb-2">ยังไม่มีโปรเจกต์</h3>
-          <p className="text-sm sm:text-base text-slate-500 mb-6">
-            สร้างโปรเจกต์แรกของคุณเพื่อเริ่มจัดการงาน
+          <h3 className="text-lg font-semibold mb-1">ยังไม่มีโปรเจกต์</h3>
+          <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+            สร้างโปรเจกต์แรกของคุณเพื่อเริ่มจัดการ board และ task
           </p>
-          <button
-            onClick={handleCreate}
-            className="px-6 py-3 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-200/50"
-          >
+          <Button onClick={handleCreate} className="gap-1.5">
+            <Plus className="h-4 w-4" />
             สร้างโปรเจกต์แรก
-          </button>
+          </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-          {projects.map((project: INestedProject, i) => (
-            <div
-              key={i}
-              className="group bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200 transition-all duration-300 hover:-translate-y-1 cursor-pointer relative overflow-hidden"
-            >
-              {/* Gradient top bar */}
-              <div
-                className={`absolute top-0 left-0 right-0 h-1 bg-linear-to-r ${gradients[i % gradients.length]}`}
-              />
+        /* Project Grid */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {projects.map((project, i) => {
+            const status = statusConfig[project.status];
+            const priority = priorityConfig[project.priority];
+            const accent = accentColors[i % accentColors.length];
 
-              {/* Edit Button */}
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleEdit(project);
-                }}
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all z-10"
-                title="แก้ไขโปรเจกต์"
+            return (
+              <Card
+                key={project.id}
+                className="group relative overflow-hidden transition-shadow hover:shadow-md"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"
-                  />
-                </svg>
-              </button>
+                {/* Accent bar */}
+                <div
+                  className={`absolute top-0 left-0 right-0 h-0.5 ${accent}`}
+                />
 
-              <Link href={`/workspace/${slug}/${project.slug}`} className="block">
-                {/* Card Header */}
-                <div className="flex items-start mb-3">
-                  <div
-                    className={`w-10 h-10 sm:w-11 sm:h-11 bg-linear-to-br ${gradients[i % gradients.length]} rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md`}
-                  >
-                    {project.title.charAt(0).toUpperCase()}
+                <CardHeader className="pb-2 pt-5">
+                  <div className="flex items-start justify-between gap-2">
+                    {/* Icon + Title */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accent} text-white text-sm font-bold`}
+                      >
+                        {project.title.charAt(0).toUpperCase()}
+                      </div>
+                      <CardTitle className="text-base leading-snug truncate">
+                        <Link
+                          href={`/workspace/${slug}/${project.slug}`}
+                          className="hover:text-primary transition-colors"
+                        >
+                          {project.title}
+                        </Link>
+                      </CardTitle>
+                    </div>
+
+                    {/* Actions (show on hover) */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleEdit(project)}
+                        title="แก้ไข"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(project.id, project.title)}
+                        disabled={deletingId === project.id}
+                        title="ลบ"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Title & Description */}
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-1.5 group-hover:text-blue-700 transition-colors truncate">
-                  {project.title}
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 line-clamp-2 mb-4">
-                  {project.description}
-                </p>
+                  <CardDescription className="line-clamp-2 text-xs mt-1">
+                    {project.description || "ไม่มีรายละเอียด"}
+                  </CardDescription>
+                </CardHeader>
 
-                {/* Footer */}
-                <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
+                <CardContent className="pb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={status.variant} className="text-[11px] h-5">
+                      {status.label}
+                    </Badge>
+                    <span
+                      className={`text-[11px] font-medium ${priority.color}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v9.75"
-                      />
-                    </svg>
-                    {new Date(project.createAt).toLocaleDateString("th-TH", {
+                      {priority.label}
+                    </span>
+                  </div>
+                </CardContent>
+
+                <CardFooter className="pt-3 border-t text-xs text-muted-foreground gap-3">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(project.createdAt).toLocaleDateString("th-TH", {
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     })}
-                  </div>
-                  {projectBoardCount(project) && (
-                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
-                      {projectBoardCount(project)} งาน
-                    </span>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDelete(project.id);
-                    }}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </Link>
-            </div>
-          ))}
+                  </span>
+                  <span className="flex items-center gap-1 ml-auto">
+                    <Layers className="h-3 w-3" />
+                    {project.boards.length} board
+                  </span>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
 
-      {/* Project Form Modal */}
-      {showForm && (
-        <ProjectForm
-          workspaceId={workspaceId}
-          project={editingProject}
-          slug={slug}
-          onClose={handleCloseForm}
-        />
-      )}
-    </div>
+      {/* Slide-over form */}
+      <ProjectForm
+        open={showForm}
+        onClose={handleCloseForm}
+        workspaceId={workspaceId}
+        slug={slug}
+        project={editingProject}
+      />
+    </>
   );
 }

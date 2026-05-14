@@ -1,228 +1,332 @@
-'use client'
+"use client";
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signInWithPopup,
-    updateProfile,
-} from 'firebase/auth'
-import { auth, googleProvider } from '@/lib/firebase-config'
-import { createUserInDB } from '@/app/login/actions'
-import { useAuthStore } from '@/store/authStore'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  updateProfile,
+} from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase-config";
+import { createUserInDB } from "@/app/login/actions";
+import { useAuthStore } from "@/store/authStore";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Separator } from "@/components/ui/separator";
 
-export default function LoginPage() {
-    const router = useRouter()
-    const { setUser } = useAuthStore()
-    const [isSignup, setIsSignup] = useState(false)
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
-    const [name, setName] = useState('')
-    const [isPending, startTransition] = useTransition()
+// ─── Schemas ─────────────────────────────────────────────────────────────────
+const loginSchema = z.object({
+  email: z.string().min(1, "กรุณาระบุอีเมล").email("รูปแบบอีเมลไม่ถูกต้อง"),
+  password: z.string().min(6, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร"),
+});
 
-    /** ─── Helper: sync Firebase user → Zustand + MongoDB ─── */
-    const handleAuthSuccess = async (
-        uid: string,
-        userEmail: string,
-        displayName?: string | null,
-        photoURL?: string | null
-    ) => {
-        // 1. Set cookie ให้ Middleware และ Server Components อ่านได้
-        document.cookie = `firebase-uid=${uid}; path=/; max-age=86400; SameSite=Lax`
+const signupSchema = z.object({
+  name: z.string().max(50, "ชื่อต้องไม่เกิน 50 ตัวอักษร").optional(),
+  email: z.string().min(1, "กรุณาระบุอีเมล").email("รูปแบบอีเมลไม่ถูกต้อง"),
+  password: z
+    .string()
+    .min(6, "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร")
+    .max(72, "รหัสผ่านต้องไม่เกิน 72 ตัวอักษร"),
+});
 
-        // 2. Upsert ใน MongoDB (idempotent)
-        const result = await createUserInDB({
-            uid,
-            email: userEmail,
-            name: displayName,
-            image: photoURL
-        })
-        if (!result.success) {
-            console.error("Sync to DB failed:", result.error);
-            toast.error('เข้าสู่ระบบสำเร็จใน Firebase แต่บันทึกฐานข้อมูลไม่ได้')
-            // ให้เขาไปต่อได้ เพราะ Firebase Auth ผ่านแล้ว
-        }
-        // 3. อัป Zustand store
-        setUser({ uid, email: userEmail, name: displayName ?? '', image: photoURL ?? '' })
+type LoginValues = z.infer<typeof loginSchema>;
+type SignupValues = z.infer<typeof signupSchema>;
 
-        toast.success('เข้าสู่ระบบสำเร็จ!')
-        router.push('/workspace')
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function AuthForm() {
+  const router = useRouter();
+  const { setUser } = useAuthStore();
+  const [isSignup, setIsSignup] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  const loginForm = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
+  });
+
+  const signupForm = useForm<SignupValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
+
+  /** ─── Helper: sync Firebase user → Zustand + MongoDB ─── */
+  const handleAuthSuccess = async (
+    uid: string,
+    userEmail: string,
+    displayName?: string | null,
+    photoURL?: string | null,
+  ) => {
+    document.cookie = `firebase-uid=${uid}; path=/; max-age=86400; SameSite=Lax`;
+    const result = await createUserInDB({
+      uid,
+      email: userEmail,
+      name: displayName,
+      image: photoURL,
+    });
+    if (!result.success) {
+      toast.error("เข้าสู่ระบบสำเร็จ แต่บันทึกฐานข้อมูลไม่ได้");
     }
+    setUser({
+      uid,
+      email: userEmail,
+      name: displayName ?? "",
+      image: photoURL ?? "",
+    });
+    toast.success("เข้าสู่ระบบสำเร็จ!");
+    router.push("/workspace");
+  };
 
-    /** ─── Email/Password Login ─── */
-    const handleEmailLogin = () => {
-        if (!email || !password) return toast.error('กรุณากรอกอีเมลและรหัสผ่าน')
-        startTransition(async () => {
-            try {
-                const result = await signInWithEmailAndPassword(auth, email, password)
-                const u = result.user
-                console.log(u)
-                await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL)
-            } catch (err: unknown) {
-                console.error("login email error:", err)
-                setUser(null)
-                const message = err instanceof Error ? err.message : 'เข้าสู่ระบบไม่สำเร็จ'
-                toast.error(message.includes('invalid-credential') ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' : message)
-            }
-        })
-    }
+  /** ─── Login ─── */
+  function onLogin(values: LoginValues) {
+    startTransition(async () => {
+      try {
+        const result = await signInWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password,
+        );
+        const u = result.user;
+        await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ";
+        loginForm.setError("password", {
+          message: message.includes("invalid-credential")
+            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+            : "เกิดข้อผิดพลาด กรุณาลองใหม่",
+        });
+      }
+    });
+  }
 
-    /** ─── Google Sign-In ─── */
-    const handleGoogleSignIn = () => {
-        startTransition(async () => {
-            try {
-                const result = await signInWithPopup(auth, googleProvider)
-                const u = result.user
-                await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL)
-            } catch (err: unknown) {
-                console.error("register google error:", err)
-                setUser(null)
-                const message = err instanceof Error ? err.message : 'Google Sign-In ไม่สำเร็จ'
-                if (!message.includes('popup-closed')) toast.error(message)
-            }
-        })
-    }
+  /** ─── Signup ─── */
+  function onSignup(values: SignupValues) {
+    startTransition(async () => {
+      try {
+        const result = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password,
+        );
+        const u = result.user;
+        if (values.name) await updateProfile(u, { displayName: values.name });
+        await handleAuthSuccess(u.uid, u.email!, values.name || null, null);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "สมัครสมาชิกไม่สำเร็จ";
+        signupForm.setError("email", {
+          message: message.includes("email-already-in-use")
+            ? "อีเมลนี้ถูกใช้งานแล้ว"
+            : "เกิดข้อผิดพลาด กรุณาลองใหม่",
+        });
+      }
+    });
+  }
 
-    /** ─── Email/Password Signup ─── */
-    const handleEmailSignup = () => {
-        if (!email || !password) return toast.error('กรุณากรอกอีเมลและรหัสผ่าน')
-        if (password.length < 6) return toast.error('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
-        startTransition(async () => {
-            try {
-                const result = await createUserWithEmailAndPassword(auth, email, password)
-                const u = result.user
-                // อัป displayName ถ้ากรอก name มา
-                if (name) await updateProfile(u, { displayName: name })
-                await handleAuthSuccess(u.uid, u.email!, name || null, null)
-            } catch (err: unknown) {
-                console.error("register email error:", err)
-                const message = err instanceof Error ? err.message : 'สมัครสมาชิกไม่สำเร็จ'
-                toast.error(message.includes('email-already-in-use') ? 'อีเมลนี้ถูกใช้งานแล้ว' : message)
-            }
-        })
-    }
+  /** ─── Google Sign-In ─── */
+  const handleGoogleSignIn = () => {
+    startTransition(async () => {
+      try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const u = result.user;
+        await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Google Sign-In ไม่สำเร็จ";
+        if (!message.includes("popup-closed")) toast.error(message);
+      }
+    });
+  };
 
+  const toggleMode = () => {
+    setIsSignup((v) => !v);
+    loginForm.reset();
+    signupForm.reset();
+  };
 
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
-
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3 shadow-lg">
-                        <span className="text-white font-bold text-xl">M</span>
-                    </div>
-                    <h1 className="text-3xl font-bold text-slate-900">Mini-Jira</h1>
-                    <p className="text-slate-500 mt-1 text-sm">
-                        {isSignup ? 'สร้างบัญชีใหม่' : 'เข้าสู่ระบบเพื่อจัดการโปรเจกต์ของคุณ'}
-                    </p>
-                </div>
-
-                <div className="space-y-4">
-                    {/* Name Field — แสดงเฉพาะตอน Signup */}
-                    {isSignup && (
-                        <div className="space-y-1">
-                            <label htmlFor="name" className="text-sm font-semibold text-slate-700 block">
-                                ชื่อ (ไม่บังคับ)
-                            </label>
-                            <input
-                                id="name"
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="ชื่อของคุณ"
-                                className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-900"
-                            />
-                        </div>
-                    )}
-
-                    {/* Email Field */}
-                    <div className="space-y-1">
-                        <label htmlFor="email" className="text-sm font-semibold text-slate-700 block">
-                            Email Address
-                        </label>
-                        <input
-                            id="email"
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="name@company.com"
-                            className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-900"
-                        />
-                    </div>
-
-                    {/* Password Field */}
-                    <div className="space-y-1">
-                        <label htmlFor="password" className="text-sm font-semibold text-slate-700 block">
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-slate-900"
-                        />
-                    </div>
-
-                    {/* Email Action Button */}
-                    <button
-                        id="btn-email-action"
-                        onClick={isSignup ? handleEmailSignup : handleEmailLogin}
-                        disabled={isPending}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold py-3 rounded-lg transition-colors shadow-lg shadow-indigo-200"
-                    >
-                        {isPending ? 'กำลังดำเนินการ...' : isSignup ? 'สร้างบัญชี' : 'เข้าสู่ระบบ'}
-                    </button>
-
-                    {/* Divider */}
-                    <div className="relative py-1">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-slate-200" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-2 text-slate-400">หรือ</span>
-                        </div>
-                    </div>
-
-                    {/* Google Sign-In Button */}
-                    <button
-                        id="btn-google-signin"
-                        onClick={handleGoogleSignIn}
-                        disabled={isPending}
-                        className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-700 font-semibold py-3 rounded-lg border border-slate-200 transition-colors"
-                    >
-                        {/* Google Logo SVG */}
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                        </svg>
-                        Sign in with Google
-                    </button>
-
-                    {/* Toggle Login / Signup */}
-                    <p className="text-center text-sm text-slate-500">
-                        {isSignup ? 'มีบัญชีอยู่แล้ว? ' : 'ยังไม่มีบัญชี? '}
-                        <button
-                            id="btn-toggle-mode"
-                            onClick={() => setIsSignup(!isSignup)}
-                            className="text-indigo-600 font-semibold hover:underline"
-                        >
-                            {isSignup ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
-                        </button>
-                    </p>
-                </div>
-
-                <p className="text-center text-xs text-slate-400 mt-6">
-                    การเข้าสู่ระบบแสดงว่าคุณยอมรับข้อตกลงการใช้งาน
-                </p>
-            </div>
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo + Title */}
+        <div className="text-center mb-8">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground mx-auto mb-3 shadow-lg">
+            <span className="font-bold text-xl">M</span>
+          </div>
+          <h1 className="text-2xl font-bold">Mini-Jira</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isSignup ? "สร้างบัญชีใหม่" : "เข้าสู่ระบบจัดการโปรเจกต์"}
+          </p>
         </div>
-    )
+
+        {/* Google Sign-In */}
+        <Button
+          variant="outline"
+          className="w-full gap-2 mb-4"
+          onClick={handleGoogleSignIn}
+          disabled={isPending}
+        >
+          <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              fill="#4285F4"
+            />
+            <path
+              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              fill="#34A853"
+            />
+            <path
+              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              fill="#FBBC05"
+            />
+            <path
+              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              fill="#EA4335"
+            />
+          </svg>
+          ดำเนินการต่อด้วย Google
+        </Button>
+
+        <div className="relative mb-4">
+          <Separator />
+          <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
+            หรือ
+          </span>
+        </div>
+
+        {/* Login Form */}
+        {!isSignup && (
+          <Form {...loginForm}>
+            <form
+              onSubmit={loginForm.handleSubmit(onLogin)}
+              className="space-y-4"
+            >
+              <FormField
+                control={loginForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="name@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={loginForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+              </Button>
+            </form>
+          </Form>
+        )}
+
+        {/* Signup Form */}
+        {isSignup && (
+          <Form {...signupForm}>
+            <form
+              onSubmit={signupForm.handleSubmit(onSignup)}
+              className="space-y-4"
+            >
+              <FormField
+                control={signupForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ชื่อ (ไม่บังคับ)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="ชื่อของคุณ" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={signupForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="name@company.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={signupForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="อย่างน้อย 6 ตัวอักษร"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? "กำลังสร้างบัญชี..." : "สร้างบัญชี"}
+              </Button>
+            </form>
+          </Form>
+        )}
+
+        {/* Toggle */}
+        <p className="text-center text-sm text-muted-foreground mt-4">
+          {isSignup ? "มีบัญชีอยู่แล้ว?" : "ยังไม่มีบัญชี?"}{" "}
+          <button
+            type="button"
+            onClick={toggleMode}
+            className="text-primary font-semibold hover:underline"
+          >
+            {isSignup ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
 }

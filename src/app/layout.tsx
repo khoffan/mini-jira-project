@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist } from "next/font/google";
 import AuthInitializer from "@/components/providers/authInitailize";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
-import Navbar from "@/components/layout/Navbar";
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const geistSans = Geist({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -25,16 +22,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <AuthInitializer />
-        <div className="min-h-screen flex flex-col bg-slate-50 font-sans">
-          {/* 2. Navbar จะเรียกใช้ useAuthState ได้ทันทีหลังจาก Initializer ทำงาน */}
-          <Navbar />
-
-          {children}
-          <Toaster richColors position="top-right" />
-        </div>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${geistSans.variable} antialiased`}>
+        <ThemeProvider>
+          <TooltipProvider>
+            <AuthInitializer />
+            {children}
+            <Toaster richColors position="top-right" />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

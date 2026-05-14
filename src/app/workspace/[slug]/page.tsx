@@ -5,7 +5,8 @@ import Workspace from "@/lib/models/Workspace";
 import Project from "@/lib/models/Project";
 import Board from "@/lib/models/Board";
 import ProjectList from "./project-list";
-import { INestedProject, IWorkspaceWithNestedData } from "@/lib/types";
+import { toNestedProjectDTO, toWorkspaceDTO } from "@/lib/mappers";
+import type { IWorkspaceLean } from "@/lib/lean-types";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -30,24 +31,25 @@ export default async function WorkspacePage({ params }: PageProps) {
         model: Board,
       },
     })
-    .lean<IWorkspaceWithNestedData>();
+    .lean<IWorkspaceLean>();
 
   if (!workspace || workspace.ownerId !== session.uid) {
     notFound();
   }
 
-  const serializedProjects = workspace.projects.map((p: INestedProject) => ({
-    ...p,
-    _count: { boards: p.boards ? p.boards.length : 0 },
-    createdAt: p.createAt ? new Date(p.createAt).toISOString() : new Date().toISOString(),
-    updatedAt: p.updateAt ? new Date(p.createAt).toISOString() : new Date().toISOString(),
+  const workspaceDTO = toWorkspaceDTO(workspace);
+  const serializedProjects = (workspace.projects ?? []).map((p) => ({
+    ...toNestedProjectDTO(p),
+    _count: { boards: Array.isArray(p.boards) ? p.boards.length : 0 },
   }));
 
-  console.log("serializedProjects", serializedProjects);
-
   return (
-    <main className="app-container py-6 sm:py-8">
-      <ProjectList projects={serializedProjects} workspaceId={workspace.id} slug={workspace.slug} />
+    <main className="flex-1 p-6">
+      <ProjectList
+        projects={serializedProjects}
+        workspaceId={workspaceDTO.id}
+        slug={workspaceDTO.slug}
+      />
     </main>
   );
 }

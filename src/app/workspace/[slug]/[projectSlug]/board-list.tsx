@@ -1,133 +1,210 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import BoardForm from './board-form'
-import Link from 'next/link'
-import { INestedBoard } from '@/lib/types'
-
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Calendar,
+  ListChecks,
+  Columns3,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/ui/card";
+import BoardForm from "./board-form";
+import { deleteBoardAction } from "./actions";
+import type { INestedBoard } from "@/lib/types";
 
 interface BoardListProps {
-    boards: INestedBoard[]
-    workspaceId: string
-    projectId: string
-    workSlug: string
-    projectSlug: string
+  boards: INestedBoard[];
+  workspaceId: string;
+  projectId: string;
+  workSlug: string;
+  projectSlug: string;
 }
 
-const gradients = [
-    'from-emerald-500 to-teal-600',
-    'from-blue-500 to-indigo-600',
-    'from-violet-500 to-purple-600',
-    'from-cyan-500 to-blue-500',
-    'from-rose-500 to-pink-500',
-    'from-amber-500 to-orange-500',
-]
+export default function BoardList({
+  boards,
+  workspaceId,
+  projectId,
+  workSlug,
+  projectSlug,
+}: BoardListProps) {
+  const router = useRouter();
+  const [showForm, setShowForm] = useState(false);
+  const [editingBoard, setEditingBoard] = useState<INestedBoard | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-export default function BoardList({ boards, workspaceId, projectId, workSlug, projectSlug }: BoardListProps) {
-    const [showForm, setShowForm] = useState(false)
+  function handleCreate() {
+    setEditingBoard(null);
+    setShowForm(true);
+  }
 
-    function handleCreate() {
-        setShowForm(true)
-    }
+  function handleEdit(board: INestedBoard) {
+    setEditingBoard(board);
+    setShowForm(true);
+  }
 
-    function handleCloseForm() {
-        setShowForm(false)
-    }
+  function handleCloseForm() {
+    setShowForm(false);
+    setEditingBoard(null);
+  }
 
-    return (
-        <div>
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                        บอร์ด
-                    </h1>
-                    <p className="text-sm sm:text-base text-slate-500 mt-1">
-                        จัดการบอร์ดและติดตามงานในโปรเจกต์นี้
-                    </p>
-                </div>
-                <button
-                    onClick={handleCreate}
-                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-emerald-200/50 hover:-translate-y-0.5 w-full sm:w-auto"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    สร้างบอร์ดใหม่
-                </button>
-            </div>
-            {/* Board Grid */}
-            {boards.length === 0 ? (
-                <div className="text-center py-16 sm:py-20">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-linear-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-5 sm:mb-6">
-                        <svg className="w-8 h-8 sm:w-10 sm:h-10 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125Z" />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-700 mb-2">ยังไม่มีบอร์ด</h3>
-                    <p className="text-sm sm:text-base text-slate-500 mb-6">สร้างบอร์ดแรกเพื่อเริ่มจัดการ Task ในโปรเจกต์นี้</p>
-                    <button
-                        onClick={handleCreate}
-                        className="px-6 py-3 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-200/50"
-                    >
-                        สร้างบอร์ดแรก
-                    </button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
-                    {boards.map((board, i) => (
-                        <div
-                            key={board.id}
-                            className="group bg-white border border-slate-200/80 rounded-2xl p-5 sm:p-6 hover:shadow-xl hover:shadow-slate-100/50 transition-all duration-300 hover:-translate-y-1 cursor-pointer relative overflow-hidden"
-                        >
-                            {/* Gradient top bar */}
-                            <div className={`absolute top-0 left-0 right-0 h-1.5 bg-linear-to-r ${gradients[i % gradients.length]}`} />
-
-                            <Link href={`/workspace/${workSlug}/${projectSlug}/${board.id}`} className="block">
-                                {/* Card Header */}
-                                <div className="flex items-start mb-3">
-                                    <div className={`w-10 h-10 sm:w-11 sm:h-11 bg-linear-to-br ${gradients[i % gradients.length]} rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md`}>
-                                        {board.title.charAt(0).toUpperCase()}
-                                    </div>
-                                </div>
-
-                                {/* Title */}
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-1.5 group-hover:text-emerald-700 transition-colors truncate">
-                                    {board.title}
-                                </h3>
-
-                                {/* Footer */}
-                                <div className="flex items-center justify-between pt-3 sm:pt-4 border-t border-slate-100 mt-3">
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 9v9.75" />
-                                        </svg>
-                                        {new Date(board.createdAt).toLocaleDateString('th-TH', {
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric',
-                                        })}
-                                    </div>
-                                    {board.tasks.length > 0 && (
-                                        <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                                            {board.tasks.length} งาน
-                                        </span>
-                                    )}
-                                </div>
-                            </Link>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Board Form Modal */}
-            {showForm && (
-                <BoardForm
-                    workspaceId={workspaceId}
-                    projectId={projectId}
-                    onClose={handleCloseForm}
-                />
-            )}
-        </div>
+  async function handleDelete(boardId: string, boardTitle: string) {
+    if (
+      !confirm(
+        `ยืนยันการลบ board "${boardTitle}"?\nการลบจะลบ task ทั้งหมดใน board นี้`,
+      )
     )
+      return;
+    setDeletingId(boardId);
+    try {
+      await deleteBoardAction({
+        id: boardId,
+        workspaceSlug: workSlug,
+        projectSlug,
+      });
+      toast.success("ลบ board เรียบร้อยแล้ว");
+      router.refresh();
+    } catch {
+      toast.error("เกิดข้อผิดพลาดในการลบ board");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Boards</h2>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            {boards.length > 0 ? `${boards.length} board` : "ยังไม่มี board"}
+          </p>
+        </div>
+        <Button onClick={handleCreate} size="sm" className="gap-1.5">
+          <Plus className="h-4 w-4" />
+          สร้าง Board
+        </Button>
+      </div>
+
+      {/* Empty state */}
+      {boards.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted mb-4">
+            <Columns3 className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h3 className="text-base font-semibold mb-1">ยังไม่มี board</h3>
+          <p className="text-muted-foreground text-sm mb-5 max-w-xs">
+            สร้าง board เพื่อเริ่มจัดการ task ในโปรเจกต์นี้
+          </p>
+          <Button onClick={handleCreate} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" />
+            สร้าง Board แรก
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {boards.map((board) => (
+            <Card
+              key={board.id}
+              className="group relative overflow-hidden transition-shadow hover:shadow-md"
+            >
+              {/* Color accent bar */}
+              <div
+                className="absolute top-0 left-0 right-0 h-0.5"
+                style={{ backgroundColor: board.color ?? "#6366f1" }}
+              />
+
+              <CardHeader className="pb-2 pt-5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white text-sm font-bold"
+                      style={{ backgroundColor: board.color ?? "#6366f1" }}
+                    >
+                      {board.title.charAt(0).toUpperCase()}
+                    </div>
+                    <CardTitle className="text-base truncate">
+                      <Link
+                        href={`/workspace/${workSlug}/${projectSlug}/${board.slug}`}
+                        className="hover:text-primary transition-colors"
+                      >
+                        {board.title}
+                      </Link>
+                    </CardTitle>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => handleEdit(board)}
+                      title="แก้ไข"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(board.id, board.title)}
+                      disabled={deletingId === board.id}
+                      title="ลบ"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {board.description && (
+                  <CardDescription className="text-xs mt-1 line-clamp-1">
+                    {board.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+
+              <CardFooter className="pt-3 border-t text-xs text-muted-foreground gap-3">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(board.createdAt).toLocaleDateString("th-TH", {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+                <span className="flex items-center gap-1 ml-auto">
+                  <ListChecks className="h-3 w-3" />
+                  {board.tasks.length} task
+                </span>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Slide-over form */}
+      <BoardForm
+        open={showForm}
+        onClose={handleCloseForm}
+        workspaceId={workspaceId}
+        projectId={projectId}
+        workspaceSlug={workSlug}
+        projectSlug={projectSlug}
+        board={editingBoard}
+      />
+    </>
+  );
 }

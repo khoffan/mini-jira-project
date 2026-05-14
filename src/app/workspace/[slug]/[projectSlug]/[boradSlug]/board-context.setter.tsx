@@ -1,19 +1,18 @@
-'use client'
+"use client";
 
 import { useEffect } from "react";
 import { useBoardStore } from "@/store/use-board-store";
 
 interface BoardContextSetterProps {
-    boardId: string;
-    boardTitle: string;
+  board: { id: string; title: string; slug?: string };
 }
 
-export default function BoardContextSetter({ boardId, boardTitle }: BoardContextSetterProps) {
-    const setBoard = useBoardStore((state) => state.setBoard);
+export default function BoardContextSetter({ board }: BoardContextSetterProps) {
+  const setBoard = useBoardStore((state) => state.setBoard);
 
-    useEffect(() => {
-        setBoard({ id: boardId, title: boardTitle });
-    }, [boardId, boardTitle, setBoard]);
+  useEffect(() => {
+    setBoard({ id: board.id, title: board.title });
+  }, [board.id, board.title, setBoard]);
 
-    return null;
-}   
+  return null;
+}
