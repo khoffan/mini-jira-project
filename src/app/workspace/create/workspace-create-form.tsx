@@ -1,38 +1,18 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createWorkspaceAction } from "../actions";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Globe, LinkIcon, Lock, LayoutGrid } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
+import { LayoutGrid } from "lucide-react";
+import { Form, Input, Button, Space, Card, Checkbox, Divider, Spin } from "antd";
 import { toast } from "sonner";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 const workspaceSchema = z.object({
-  name: z
-    .string()
-    .min(2, "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร")
-    .max(50, "ชื่อต้องไม่เกิน 50 ตัวอักษร"),
-  description: z
-    .string()
-    .max(200, "คำอธิบายต้องไม่เกิน 200 ตัวอักษร")
-    .optional(),
+  name: z.string().min(2, "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร").max(50, "ชื่อต้องไม่เกิน 50 ตัวอักษร"),
+  description: z.string().max(200, "คำอธิบายต้องไม่เกิน 200 ตัวอักษร").optional(),
   allowLinkJoin: z.boolean(),
   isPublic: z.boolean(),
 });
@@ -44,21 +24,10 @@ interface WorkspaceCreateFormProps {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function WorkspaceCreateForm({
-  userId,
-}: WorkspaceCreateFormProps) {
+export default function WorkspaceCreateForm({ userId }: WorkspaceCreateFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-
-  const form = useForm<WorkspaceFormValues>({
-    resolver: zodResolver(workspaceSchema),
-    defaultValues: {
-      name: "",
-      description: "",
-      allowLinkJoin: true,
-      isPublic: false,
-    },
-  });
+  const [form] = Form.useForm<WorkspaceFormValues>();
 
   function onSubmit(values: WorkspaceFormValues) {
     startTransition(async () => {
@@ -76,178 +45,161 @@ export default function WorkspaceCreateForm({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-lg">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px 16px 40px",
+        background: "#fafafa",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "448px" }}>
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground mx-auto mb-3 shadow-lg">
-            <LayoutGrid className="h-6 w-6" />
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "12px",
+              backgroundColor: "#1890ff",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 12px",
+              fontSize: "24px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <LayoutGrid size={24} />
           </div>
-          <h1 className="text-2xl font-bold">สร้าง Workspace ใหม่</h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <h1 style={{ fontSize: "24px", fontWeight: "bold", margin: "0 0 8px" }}>
+            สร้าง Workspace ใหม่
+          </h1>
+          <p style={{ color: "#999", fontSize: "14px", margin: 0 }}>
             พื้นที่สำหรับจัดการโปรเจกต์และทีมของคุณ
           </p>
         </div>
 
-        <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="p-6 space-y-5"
+        <Card
+          style={{
+            borderRadius: "8px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+          }}
+        >
+          <Spin spinning={isPending}>
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={onSubmit}
+              autoComplete="off"
+              initialValues={{
+                allowLinkJoin: true,
+                isPublic: false,
+              }}
             >
               {/* Name */}
-              <FormField
-                control={form.control}
+              <Form.Item
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ชื่อ Workspace *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="เช่น My Digital Agency, Startup Project"
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                label="ชื่อ Workspace *"
+                rules={[
+                  { required: true, message: "กรุณาระบุชื่อ Workspace" },
+                  { min: 2, message: "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร" },
+                  { max: 50, message: "ชื่อต้องไม่เกิน 50 ตัวอักษร" },
+                ]}
+              >
+                <Input placeholder="เช่น My Digital Agency, Startup Project" autoFocus />
+              </Form.Item>
 
               {/* Description */}
-              <FormField
-                control={form.control}
+              <Form.Item
                 name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>คำอธิบาย</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="บอกรายละเอียดสั้นๆ เกี่ยวกับ Workspace นี้..."
-                        className="resize-none"
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                label="คำอธิบาย"
+                rules={[{ max: 200, message: "คำอธิบายต้องไม่เกิน 200 ตัวอักษร" }]}
+              >
+                <Input.TextArea
+                  placeholder="บอกรายละเอียดสั้นๆ เกี่ยวกับ Workspace นี้..."
+                  rows={3}
+                />
+              </Form.Item>
 
-              <Separator />
+              <Divider />
 
               {/* Access Settings */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <div style={{ marginBottom: "20px" }}>
+                <p
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "#999",
+                    textTransform: "uppercase",
+                    marginBottom: "12px",
+                    letterSpacing: "0.5px",
+                  }}
+                >
                   การตั้งค่าการเข้าถึง
                 </p>
 
                 {/* Allow Link Join */}
-                <FormField
-                  control={form.control}
+                <Form.Item
                   name="allowLinkJoin"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <div className="p-1.5 rounded-md bg-primary/10 text-primary">
-                            <LinkIcon className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <FormLabel className="text-sm font-medium cursor-pointer">
-                              เข้าร่วมผ่านลิงก์เชิญ
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              ผู้ที่มี Invite Code สามารถเข้าร่วมได้
-                            </FormDescription>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={field.value}
-                          onClick={() => field.onChange(!field.value)}
-                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                            field.value
-                              ? "bg-primary"
-                              : "bg-muted-foreground/30"
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ${
-                              field.value ? "translate-x-4" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
+                  valuePropName="checked"
+                  style={{ marginBottom: "12px" }}
+                >
+                  <Checkbox style={{ display: "flex", alignItems: "center" }}>
+                    <div style={{ marginLeft: "8px" }}>
+                      <div style={{ fontWeight: "500", fontSize: "14px" }}>
+                        เข้าร่วมผ่านลิงก์เชิญ
                       </div>
-                    </FormItem>
-                  )}
-                />
+                      <div style={{ fontSize: "12px", color: "#999" }}>
+                        ผู้ที่มี Invite Code สามารถเข้าร่วมได้
+                      </div>
+                    </div>
+                  </Checkbox>
+                </Form.Item>
 
                 {/* Is Public */}
-                <FormField
-                  control={form.control}
-                  name="isPublic"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`p-1.5 rounded-md ${field.value ? "bg-emerald-100 text-emerald-600" : "bg-muted text-muted-foreground"}`}
-                          >
-                            {field.value ? (
-                              <Globe className="h-4 w-4" />
-                            ) : (
-                              <Lock className="h-4 w-4" />
-                            )}
-                          </div>
-                          <div>
-                            <FormLabel className="text-sm font-medium cursor-pointer">
-                              Workspace สาธารณะ
-                            </FormLabel>
-                            <FormDescription className="text-xs">
-                              คนในองค์กรค้นหาและดู Workspace นี้ได้
-                            </FormDescription>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={field.value}
-                          onClick={() => field.onChange(!field.value)}
-                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
-                            field.value
-                              ? "bg-primary"
-                              : "bg-muted-foreground/30"
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ${
-                              field.value ? "translate-x-4" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
+                <Form.Item name="isPublic" valuePropName="checked" style={{ marginBottom: "0" }}>
+                  <Checkbox style={{ display: "flex", alignItems: "center" }}>
+                    <div style={{ marginLeft: "8px" }}>
+                      <div style={{ fontWeight: "500", fontSize: "14px" }}>Workspace สาธารณะ</div>
+                      <div style={{ fontSize: "12px", color: "#999" }}>
+                        คนในองค์กรค้นหาและดู Workspace นี้ได้
                       </div>
-                    </FormItem>
-                  )}
-                />
+                    </div>
+                  </Checkbox>
+                </Form.Item>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  disabled={isPending}
-                  onClick={() => router.push("/workspace")}
-                >
-                  ยกเลิก
-                </Button>
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? "กำลังสร้าง..." : "เริ่มสร้าง Workspace"}
-                </Button>
-              </div>
-            </form>
-          </Form>
+              <Form.Item style={{ marginBottom: "0" }}>
+                <Space style={{ width: "100%", justifyContent: "flex-end" }}>
+                  <Button onClick={() => router.push("/workspace")} disabled={isPending}>
+                    ยกเลิก
+                  </Button>
+                  <Button type="primary" htmlType="submit" disabled={isPending}>
+                    {isPending ? "กำลังสร้าง..." : "เริ่มสร้าง Workspace"}
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Spin>
+        </Card>
+
+        {/* Footer link */}
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
+          <Link
+            href="/workspace"
+            style={{
+              color: "#1890ff",
+              textDecoration: "none",
+              fontSize: "14px",
+            }}
+          >
+            ← กลับไปยังหน้า Workspace
+          </Link>
         </div>
       </div>
     </div>

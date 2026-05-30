@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   signInWithEmailAndPassword,
@@ -15,17 +13,7 @@ import { createUserInDB } from "@/app/login/actions";
 import { useAuthStore } from "@/store/authStore";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
+import { Form, Input, Button, Divider, Spin } from "antd";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 const loginSchema = z.object({
@@ -34,7 +22,7 @@ const loginSchema = z.object({
 });
 
 const signupSchema = z.object({
-  name: z.string().max(50, "ชื่อต้องไม่เกิน 50 ตัวอักษร").optional(),
+  name: z.string().max(50, "ชื่อต้องไม่เกิน 50 ตัวอักษร").optional().or(z.literal("")),
   email: z.string().min(1, "กรุณาระบุอีเมล").email("รูปแบบอีเมลไม่ถูกต้อง"),
   password: z
     .string()
@@ -51,16 +39,8 @@ export default function AuthForm() {
   const { setUser } = useAuthStore();
   const [isSignup, setIsSignup] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  const loginForm = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  const signupForm = useForm<SignupValues>({
-    resolver: zodResolver(signupSchema),
-    defaultValues: { name: "", email: "", password: "" },
-  });
+  const [loginForm] = Form.useForm<LoginValues>();
+  const [signupForm] = Form.useForm<SignupValues>();
 
   /** ─── Helper: sync Firebase user → Zustand + MongoDB ─── */
   const handleAuthSuccess = async (
@@ -90,48 +70,48 @@ export default function AuthForm() {
   };
 
   /** ─── Login ─── */
-  function onLogin(values: LoginValues) {
+  async function onLogin(values: LoginValues) {
     startTransition(async () => {
       try {
-        const result = await signInWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password,
-        );
+        const result = await signInWithEmailAndPassword(auth, values.email, values.password);
         const u = result.user;
         await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ";
-        loginForm.setError("password", {
-          message: message.includes("invalid-credential")
-            ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
-            : "เกิดข้อผิดพลาด กรุณาลองใหม่",
-        });
+        const message = err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ";
+        const errorMsg = message.includes("invalid-credential")
+          ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง"
+          : "เกิดข้อผิดพลาด กรุณาลองใหม่";
+        loginForm.setFields([
+          {
+            name: "password",
+            errors: [errorMsg],
+          },
+        ]);
+        toast.error(errorMsg);
       }
     });
   }
 
   /** ─── Signup ─── */
-  function onSignup(values: SignupValues) {
+  async function onSignup(values: SignupValues) {
     startTransition(async () => {
       try {
-        const result = await createUserWithEmailAndPassword(
-          auth,
-          values.email,
-          values.password,
-        );
+        const result = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const u = result.user;
         if (values.name) await updateProfile(u, { displayName: values.name });
         await handleAuthSuccess(u.uid, u.email!, values.name || null, null);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "สมัครสมาชิกไม่สำเร็จ";
-        signupForm.setError("email", {
-          message: message.includes("email-already-in-use")
-            ? "อีเมลนี้ถูกใช้งานแล้ว"
-            : "เกิดข้อผิดพลาด กรุณาลองใหม่",
-        });
+        const message = err instanceof Error ? err.message : "สมัครสมาชิกไม่สำเร็จ";
+        const errorMsg = message.includes("email-already-in-use")
+          ? "อีเมลนี้ถูกใช้งานแล้ว"
+          : "เกิดข้อผิดพลาด กรุณาลองใหม่";
+        signupForm.setFields([
+          {
+            name: "email",
+            errors: [errorMsg],
+          },
+        ]);
+        toast.error(errorMsg);
       }
     });
   }
@@ -144,8 +124,7 @@ export default function AuthForm() {
         const u = result.user;
         await handleAuthSuccess(u.uid, u.email!, u.displayName, u.photoURL);
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Google Sign-In ไม่สำเร็จ";
+        const message = err instanceof Error ? err.message : "Google Sign-In ไม่สำเร็จ";
         if (!message.includes("popup-closed")) toast.error(message);
       }
     });
@@ -153,32 +132,60 @@ export default function AuthForm() {
 
   const toggleMode = () => {
     setIsSignup((v) => !v);
-    loginForm.reset();
-    signupForm.reset();
+    loginForm.resetFields();
+    signupForm.resetFields();
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        background: "#fafafa",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "400px" }}>
         {/* Logo + Title */}
-        <div className="text-center mb-8">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground mx-auto mb-3 shadow-lg">
-            <span className="font-bold text-xl">M</span>
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "12px",
+              backgroundColor: "#1890ff",
+              color: "white",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 12px",
+              fontSize: "24px",
+              fontWeight: "bold",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            M
           </div>
-          <h1 className="text-2xl font-bold">Mini-Jira</h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <h1 style={{ fontSize: "24px", fontWeight: "bold", margin: "0 0 8px" }}>Mini-Jira</h1>
+          <p style={{ color: "#999", fontSize: "14px", margin: 0 }}>
             {isSignup ? "สร้างบัญชีใหม่" : "เข้าสู่ระบบจัดการโปรเจกต์"}
           </p>
         </div>
 
         {/* Google Sign-In */}
         <Button
-          variant="outline"
-          className="w-full gap-2 mb-4"
+          block
+          style={{ height: "36px", marginBottom: "16px", fontSize: "14px" }}
           onClick={handleGoogleSignIn}
           disabled={isPending}
         >
-          <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            style={{ width: "16px", height: "16px", marginRight: "8px" }}
+          >
             <path
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
               fill="#4285F4"
@@ -199,129 +206,116 @@ export default function AuthForm() {
           ดำเนินการต่อด้วย Google
         </Button>
 
-        <div className="relative mb-4">
-          <Separator />
-          <span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
-            หรือ
-          </span>
-        </div>
+        <Divider style={{ margin: "16px 0" }}>หรือ</Divider>
 
         {/* Login Form */}
         {!isSignup && (
-          <Form {...loginForm}>
-            <form
-              onSubmit={loginForm.handleSubmit(onLogin)}
-              className="space-y-4"
-            >
-              <FormField
-                control={loginForm.control}
+          <Spin spinning={isPending}>
+            <Form form={loginForm} layout="vertical" onFinish={onLogin} autoComplete="off">
+              <Form.Item
                 name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="name@company.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={loginForm.control}
+                label="Email"
+                rules={[
+                  { required: true, message: "กรุณาระบุอีเมล" },
+                  { type: "email", message: "รูปแบบอีเมลไม่ถูกต้อง" },
+                ]}
+              >
+                <Input placeholder="name@company.com" type="email" />
+              </Form.Item>
+
+              <Form.Item
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isPending}>
+                label="Password"
+                rules={[
+                  { required: true, message: "กรุณาระบุรหัสผ่าน" },
+                  { min: 6, message: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" },
+                ]}
+              >
+                <Input.Password placeholder="••••••••" />
+              </Form.Item>
+
+              <Button
+                type="primary"
+                block
+                htmlType="submit"
+                disabled={isPending}
+                style={{ height: "36px" }}
+              >
                 {isPending ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
               </Button>
-            </form>
-          </Form>
+            </Form>
+          </Spin>
         )}
 
         {/* Signup Form */}
         {isSignup && (
-          <Form {...signupForm}>
-            <form
-              onSubmit={signupForm.handleSubmit(onSignup)}
-              className="space-y-4"
-            >
-              <FormField
-                control={signupForm.control}
+          <Spin spinning={isPending}>
+            <Form form={signupForm} layout="vertical" onFinish={onSignup} autoComplete="off">
+              <Form.Item
                 name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ชื่อ (ไม่บังคับ)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ชื่อของคุณ" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={signupForm.control}
+                label="ชื่อ (ไม่บังคับ)"
+                rules={[{ max: 50, message: "ชื่อต้องไม่เกิน 50 ตัวอักษร" }]}
+              >
+                <Input placeholder="ชื่อของคุณ" />
+              </Form.Item>
+
+              <Form.Item
                 name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="email"
-                        placeholder="name@company.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={signupForm.control}
+                label="Email *"
+                rules={[
+                  { required: true, message: "กรุณาระบุอีเมล" },
+                  { type: "email", message: "รูปแบบอีเมลไม่ถูกต้อง" },
+                ]}
+              >
+                <Input placeholder="name@company.com" type="email" />
+              </Form.Item>
+
+              <Form.Item
                 name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password *</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="อย่างน้อย 6 ตัวอักษร"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isPending}>
+                label="Password *"
+                rules={[
+                  { required: true, message: "กรุณาระบุรหัสผ่าน" },
+                  { min: 6, message: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" },
+                  { max: 72, message: "รหัสผ่านต้องไม่เกิน 72 ตัวอักษร" },
+                ]}
+              >
+                <Input.Password placeholder="อย่างน้อย 6 ตัวอักษร" />
+              </Form.Item>
+
+              <Button
+                type="primary"
+                block
+                htmlType="submit"
+                disabled={isPending}
+                style={{ height: "36px" }}
+              >
                 {isPending ? "กำลังสร้างบัญชี..." : "สร้างบัญชี"}
               </Button>
-            </form>
-          </Form>
+            </Form>
+          </Spin>
         )}
 
         {/* Toggle */}
-        <p className="text-center text-sm text-muted-foreground mt-4">
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "14px",
+            color: "#999",
+            marginTop: "16px",
+          }}
+        >
           {isSignup ? "มีบัญชีอยู่แล้ว?" : "ยังไม่มีบัญชี?"}{" "}
           <button
             type="button"
             onClick={toggleMode}
-            className="text-primary font-semibold hover:underline"
+            style={{
+              color: "#1890ff",
+              fontWeight: "600",
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
           >
             {isSignup ? "เข้าสู่ระบบ" : "สมัครสมาชิก"}
           </button>

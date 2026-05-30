@@ -3,25 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  Calendar,
-  Layers,
-  FolderOpen,
-} from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Layers } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from "@/components/ui/card";
+import { Button, Card, Tag, Empty, Space } from "antd";
 import ProjectForm from "./project-form";
 import { deleteProjectAction } from "./actions";
 import type { INestedProject, ProjectStatus, Priority } from "@/lib/types";
@@ -32,45 +16,26 @@ interface ProjectListProps {
   slug: string;
 }
 
-const accentColors = [
-  "bg-indigo-500",
-  "bg-violet-500",
-  "bg-cyan-500",
-  "bg-emerald-500",
-  "bg-rose-500",
-  "bg-amber-500",
-];
+const accentColors = ["#4f46e5", "#a855f7", "#06b6d4", "#10b981", "#f43f5e", "#f59e0b"];
 
-const statusConfig: Record<
-  ProjectStatus,
-  {
-    label: string;
-    variant: "default" | "secondary" | "destructive" | "outline";
-  }
-> = {
-  ACTIVE: { label: "Active", variant: "default" },
-  PAUSED: { label: "Paused", variant: "secondary" },
-  COMPLETED: { label: "Completed", variant: "outline" },
-  ARCHIVED: { label: "Archived", variant: "secondary" },
+const statusConfig: Record<ProjectStatus, { label: string; color: string }> = {
+  ACTIVE: { label: "Active", color: "blue" },
+  PAUSED: { label: "Paused", color: "orange" },
+  COMPLETED: { label: "Completed", color: "green" },
+  ARCHIVED: { label: "Archived", color: "default" },
 };
 
 const priorityConfig: Record<Priority, { label: string; color: string }> = {
-  LOW: { label: "Low", color: "text-sky-600" },
-  MEDIUM: { label: "Medium", color: "text-amber-600" },
-  HIGH: { label: "High", color: "text-orange-600" },
-  URGENT: { label: "Urgent", color: "text-red-600" },
+  LOW: { label: "Low", color: "cyan" },
+  MEDIUM: { label: "Medium", color: "orange" },
+  HIGH: { label: "High", color: "volcano" },
+  URGENT: { label: "Urgent", color: "red" },
 };
 
-export default function ProjectList({
-  projects,
-  workspaceId,
-  slug,
-}: ProjectListProps) {
+export default function ProjectList({ projects, workspaceId, slug }: ProjectListProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState<INestedProject | null>(
-    null,
-  );
+  const [editingProject, setEditingProject] = useState<INestedProject | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   function handleCreate() {
@@ -110,129 +75,181 @@ export default function ProjectList({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "24px",
+        }}
+      >
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">โปรเจกต์</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {projects.length > 0
-              ? `${projects.length} โปรเจกต์`
-              : "ยังไม่มีโปรเจกต์"}
+          <h1 style={{ fontSize: "24px", fontWeight: "bold", margin: 0 }}>โปรเจกต์</h1>
+          <p style={{ color: "#999", fontSize: "12px", marginTop: "4px" }}>
+            {projects.length > 0 ? `${projects.length} โปรเจกต์` : "ยังไม่มีโปรเจกต์"}
           </p>
         </div>
-        <Button onClick={handleCreate} className="gap-1.5">
-          <Plus className="h-4 w-4" />
+        <Button type="primary" icon={<Plus size={14} />} onClick={handleCreate}>
           สร้างโปรเจกต์
         </Button>
       </div>
 
       {/* Empty state */}
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
-            <FolderOpen className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h3 className="text-lg font-semibold mb-1">ยังไม่มีโปรเจกต์</h3>
-          <p className="text-muted-foreground text-sm mb-6 max-w-sm">
-            สร้างโปรเจกต์แรกของคุณเพื่อเริ่มจัดการ board และ task
-          </p>
-          <Button onClick={handleCreate} className="gap-1.5">
-            <Plus className="h-4 w-4" />
+        <Empty description="ยังไม่มีโปรเจกต์" style={{ marginTop: "80px" }}>
+          <Button type="primary" icon={<Plus size={14} />} onClick={handleCreate}>
             สร้างโปรเจกต์แรก
           </Button>
-        </div>
+        </Empty>
       ) : (
         /* Project Grid */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: "16px",
+          }}
+        >
           {projects.map((project, i) => {
             const status = statusConfig[project.status];
             const priority = priorityConfig[project.priority];
             const accent = accentColors[i % accentColors.length];
 
             return (
-              <Card
-                key={project.id}
-                className="group relative overflow-hidden transition-shadow hover:shadow-md"
-              >
-                {/* Accent bar */}
-                <div
-                  className={`absolute top-0 left-0 right-0 h-0.5 ${accent}`}
-                />
-
-                <CardHeader className="pb-2 pt-5">
-                  <div className="flex items-start justify-between gap-2">
-                    {/* Icon + Title */}
-                    <div className="flex items-center gap-2.5 min-w-0">
+              <Card key={project.id} style={{ borderTop: `3px solid ${accent}` }} hoverable>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {/* Title section */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      gap: "8px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        minWidth: 0,
+                        flex: 1,
+                      }}
+                    >
                       <div
-                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${accent} text-white text-sm font-bold`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "32px",
+                          height: "32px",
+                          borderRadius: "6px",
+                          backgroundColor: accent,
+                          color: "white",
+                          fontSize: "14px",
+                          fontWeight: "bold",
+                          flexShrink: 0,
+                        }}
                       >
                         {project.title.charAt(0).toUpperCase()}
                       </div>
-                      <CardTitle className="text-base leading-snug truncate">
-                        <Link
-                          href={`/workspace/${slug}/${project.slug}`}
-                          className="hover:text-primary transition-colors"
-                        >
-                          {project.title}
-                        </Link>
-                      </CardTitle>
+                      <Link
+                        href={`/workspace/${slug}/${project.slug}`}
+                        style={{
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          textDecoration: "none",
+                          color: "inherit",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {project.title}
+                      </Link>
                     </div>
 
-                    {/* Actions (show on hover) */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    {/* Actions (show always) */}
+                    <Space size={4}>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
+                        type="text"
+                        size="small"
+                        icon={<Pencil size={14} />}
                         onClick={() => handleEdit(project)}
                         title="แก้ไข"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
+                        style={{ padding: "0 4px" }}
+                      />
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<Trash2 size={14} />}
                         onClick={() => handleDelete(project.id, project.title)}
-                        disabled={deletingId === project.id}
+                        loading={deletingId === project.id}
                         title="ลบ"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                        style={{ padding: "0 4px" }}
+                      />
+                    </Space>
                   </div>
 
-                  <CardDescription className="line-clamp-2 text-xs mt-1">
-                    {project.description || "ไม่มีรายละเอียด"}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent className="pb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={status.variant} className="text-[11px] h-5">
-                      {status.label}
-                    </Badge>
-                    <span
-                      className={`text-[11px] font-medium ${priority.color}`}
+                  {/* Description */}
+                  {project.description && (
+                    <p
+                      style={{
+                        fontSize: "12px",
+                        color: "#999",
+                        margin: 0,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
                     >
-                      {priority.label}
+                      {project.description}
+                    </p>
+                  )}
+
+                  {/* Tags section */}
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}
+                  >
+                    <Tag color={status.color}>{status.label}</Tag>
+                    <Tag color={priority.color}>{priority.label}</Tag>
+                  </div>
+
+                  {/* Footer info */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      paddingTop: "8px",
+                      borderTop: "1px solid #f0f0f0",
+                      fontSize: "12px",
+                      color: "#999",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <Calendar size={12} />
+                      {new Date(project.createdAt).toLocaleDateString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        marginLeft: "auto",
+                      }}
+                    >
+                      <Layers size={12} />
+                      {project.boards.length} board
                     </span>
                   </div>
-                </CardContent>
-
-                <CardFooter className="pt-3 border-t text-xs text-muted-foreground gap-3">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(project.createdAt).toLocaleDateString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </span>
-                  <span className="flex items-center gap-1 ml-auto">
-                    <Layers className="h-3 w-3" />
-                    {project.boards.length} board
-                  </span>
-                </CardFooter>
+                </div>
               </Card>
             );
           })}

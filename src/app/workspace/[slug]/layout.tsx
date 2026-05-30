@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import { Layout } from "antd";
 import { getServerSession } from "@/lib/get-session";
 import dbConnect from "@/lib/db";
 import Workspace from "@/lib/models/Workspace";
@@ -6,7 +7,6 @@ import Project from "@/lib/models/Project";
 import Board from "@/lib/models/Board";
 import Task from "@/lib/models/Task";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { toWorkspaceWithNestedDTO } from "@/lib/mappers";
 import type { IWorkspaceLean } from "@/lib/lean-types";
 
@@ -15,10 +15,7 @@ interface LayoutProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function WorkspaceLayout({
-  children,
-  params,
-}: LayoutProps) {
+export default async function WorkspaceLayout({ children, params }: LayoutProps) {
   const { slug } = await params;
   const session = await getServerSession();
 
@@ -55,19 +52,12 @@ export default async function WorkspaceLayout({
     .lean<IWorkspaceLean[]>();
 
   const serializedWorkspace = toWorkspaceWithNestedDTO(workspaceDoc);
-  const serializedAllWorkspaces = allWorkspacesDocs.map(
-    toWorkspaceWithNestedDTO,
-  );
+  const serializedAllWorkspaces = allWorkspacesDocs.map(toWorkspaceWithNestedDTO);
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        workspace={serializedWorkspace}
-        allWorkspaces={serializedAllWorkspaces}
-      />
-      <SidebarInset className="flex flex-col min-h-screen">
-        {children}
-      </SidebarInset>
-    </SidebarProvider>
+    <Layout style={{ minHeight: "100vh" }}>
+      <AppSidebar workspace={serializedWorkspace} allWorkspaces={serializedAllWorkspaces} />
+      <Layout style={{ flex: 1, display: "flex", flexDirection: "column" }}>{children}</Layout>
+    </Layout>
   );
 }

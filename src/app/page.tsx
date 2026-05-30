@@ -5,28 +5,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Navigation
-      <nav className="flex items-center justify-between px-8 py-6 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-xl">M</span>
-          </div>
-          <span className="text-xl font-bold text-slate-900 tracking-tight">Mini-Jira</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors">
-            เข้าสู่ระบบ
-          </Link>
-          <Link
-            href="/login"
-            className="px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-full hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
-          >
-            เริ่มใช้งานฟรี
-          </Link>
-        </div>
-      </nav> */}
-
-      {/* Hero Section */}
       <main className="max-w-6xl mx-auto pt-20 pb-16 px-6 text-center">
         <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 tracking-tight mb-6">
           จัดการงานให้ <span className="text-blue-600">เป็นระเบียบ</span> <br />

@@ -1,50 +1,20 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { CheckSquare, Clock } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, Input, Button, Select, DatePicker, Space } from "antd";
+import MaterialModal from "@/components/modal/MaterialModal";
+import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
 import { createTodoAction, updateTodoAction } from "./actions";
 import type { Priority, ITask, TaskStatus } from "@/lib/types";
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 const todoSchema = z.object({
-  title: z
-    .string()
-    .min(1, "กรุณาระบุหัวข้องาน")
-    .max(150, "หัวข้องานต้องไม่เกิน 150 ตัวอักษร"),
-  description: z
-    .string()
-    .max(500, "รายละเอียดต้องไม่เกิน 500 ตัวอักษร")
-    .optional(),
+  title: z.string().min(1, "กรุณาระบุหัวข้องาน").max(150, "หัวข้องานต้องไม่เกิน 150 ตัวอักษร"),
+  description: z.string().max(500, "รายละเอียดต้องไม่เกิน 500 ตัวอักษร").optional(),
   status: z.enum(["TODO", "IN_PROGRESS", "DONE"], {
     message: "กรุณาเลือกสถานะ",
   }),
@@ -65,224 +35,188 @@ interface TodoFormProps {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function TodoForm({
-  open,
-  onClose,
-  boardId,
-  todo,
-}: TodoFormProps) {
+export default function TodoForm({ open, onClose, boardId, todo }: TodoFormProps) {
   const router = useRouter();
   const isEditing = !!todo;
   const [isPending, startTransition] = useTransition();
+  const [form] = Form.useForm();
 
-  const form = useForm<TodoFormValues>({
-    resolver: zodResolver(todoSchema),
-    defaultValues: {
-      title: todo?.title ?? "",
-      description: todo?.description ?? "",
-      status: (todo?.status as TaskStatus) ?? "TODO",
-      priority: (todo?.priority as Priority) ?? "MEDIUM",
-      dueDate: todo?.dueDate
-        ? new Date(todo.dueDate).toISOString().split("T")[0]
-        : "",
-    },
-  });
-
-  function onSubmit(values: TodoFormValues) {
-    startTransition(async () => {
-      const payload = {
-        title: values.title,
-        description: values.description,
-        status: values.status as TaskStatus,
-        priority: values.priority as Priority,
-        dueDate: values.dueDate ? new Date(values.dueDate) : null,
-        boardId,
-      };
-
-      if (isEditing && todo?.id) {
-        await updateTodoAction({ id: todo.id, ...payload });
-      } else {
-        await createTodoAction(payload);
-      }
-      router.refresh();
-      onClose();
-    });
+  interface TodoFormRawValues {
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    priority: Priority;
+    dueDate?: Dayjs | undefined;
   }
 
-  function handleOpenChange(isOpen: boolean) {
-    if (!isOpen) {
-      form.reset();
-      onClose();
+  function onSubmit(values: TodoFormRawValues) {
+    try {
+      // Normalize DatePicker (dayjs) value to ISO string for validation
+      const validationValues = {
+        ...values,
+        dueDate: values.dueDate ? dayjs(values.dueDate).toISOString() : undefined,
+      };
+
+      todoSchema.parse(validationValues);
+      startTransition(async () => {
+        const payload = {
+          title: values.title,
+          description: values.description,
+          status: values.status as TaskStatus,
+          priority: values.priority as Priority,
+          dueDate: values.dueDate ? dayjs(values.dueDate).toDate() : null,
+          boardId,
+        };
+
+        if (isEditing && todo?.id) {
+          await updateTodoAction({ id: todo.id, ...payload });
+        } else {
+          await createTodoAction(payload);
+        }
+        router.refresh();
+        form.resetFields();
+        onClose();
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError && error.issues.length > 0) {
+        const first = error.issues[0];
+        form.setFields([
+          {
+            name: first.path[0] as string,
+            errors: [first.message],
+          },
+        ]);
+      } else if (error instanceof Error) {
+        // use error.message as a readable fallback
+        console.error("Todo submit error:", error.message);
+      }
     }
   }
 
+  function handleDrawerClose() {
+    form.resetFields();
+    onClose();
+  }
+
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-lg flex flex-col p-0 gap-0"
-      >
-        {/* Header */}
-        <SheetHeader className="px-6 py-5 border-b">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <CheckSquare className="h-5 w-5" />
-            </div>
-            <div>
-              <SheetTitle>{isEditing ? "แก้ไขงาน" : "สร้างงานใหม่"}</SheetTitle>
-              <SheetDescription>
-                {isEditing
-                  ? "แก้ไขรายละเอียดของงานนี้"
-                  : "เพิ่มงานใหม่เข้าใน board"}
-              </SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
-
-        {/* Body */}
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col flex-1 overflow-hidden"
+    <MaterialModal
+      open={open}
+      onClose={handleDrawerClose}
+      title={
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              backgroundColor: "#1890ff",
+              color: "white",
+            }}
           >
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* Title */}
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>หัวข้องาน *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="เช่น ออกแบบหน้า Dashboard"
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <CheckSquare size={20} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
+              {isEditing ? "แก้ไขงาน" : "สร้างงานใหม่"}
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#999" }}>
+              {isEditing ? "แก้ไขรายละเอียดของงานนี้" : "เพิ่มงานใหม่เข้าใน board"}
+            </p>
+          </div>
+        </div>
+      }
+      footer={
+        <Space style={{ float: "right", gap: "8px" }}>
+          <Button onClick={handleDrawerClose} disabled={isPending}>
+            ยกเลิก
+          </Button>
+          <Button type="primary" loading={isPending} onClick={() => form.submit()}>
+            {isEditing ? "บันทึกการเปลี่ยนแปลง" : "สร้างงาน"}
+          </Button>
+        </Space>
+      }
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onSubmit}
+        initialValues={{
+          title: todo?.title ?? "",
+          description: todo?.description ?? "",
+          status: (todo?.status as TaskStatus) ?? "TODO",
+          priority: (todo?.priority as Priority) ?? "MEDIUM",
+          dueDate: todo?.dueDate ? dayjs(new Date(todo.dueDate)) : undefined,
+        }}
+      >
+        {/* Title */}
+        <Form.Item
+          label="หัวข้องาน *"
+          name="title"
+          rules={[
+            { required: true, message: "กรุณาระบุหัวข้องาน" },
+            { max: 150, message: "หัวข้องานต้องไม่เกิน 150 ตัวอักษร" },
+          ]}
+        >
+          <Input placeholder="เช่น ออกแบบหน้า Dashboard" autoFocus />
+        </Form.Item>
 
-              {/* Status + Priority */}
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>สถานะ *</FormLabel>
-                      <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="เลือกสถานะ" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="TODO">📋 To Do</SelectItem>
-                            <SelectItem value="IN_PROGRESS">
-                              🔄 In Progress
-                            </SelectItem>
-                            <SelectItem value="DONE">✅ Done</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        {/* Status + Priority */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <Form.Item
+            label="สถานะ *"
+            name="status"
+            rules={[{ required: true, message: "กรุณาเลือกสถานะ" }]}
+          >
+            <Select
+              options={[
+                { label: "📋 To Do", value: "TODO" },
+                { label: "🔄 In Progress", value: "IN_PROGRESS" },
+                { label: "✅ Done", value: "DONE" },
+              ]}
+            />
+          </Form.Item>
 
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ความสำคัญ *</FormLabel>
-                      <FormControl>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="เลือกความสำคัญ" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="LOW">🟦 Low</SelectItem>
-                            <SelectItem value="MEDIUM">🟨 Medium</SelectItem>
-                            <SelectItem value="HIGH">🟧 High</SelectItem>
-                            <SelectItem value="URGENT">🚨 Urgent</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+          <Form.Item
+            label="ความสำคัญ *"
+            name="priority"
+            rules={[{ required: true, message: "กรุณาเลือกความสำคัญ" }]}
+          >
+            <Select
+              options={[
+                { label: "🟦 Low", value: "LOW" },
+                { label: "🟨 Medium", value: "MEDIUM" },
+                { label: "🟧 High", value: "HIGH" },
+                { label: "🚨 Urgent", value: "URGENT" },
+              ]}
+            />
+          </Form.Item>
+        </div>
 
-              {/* Due Date */}
-              <FormField
-                control={form.control}
-                name="dueDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      กำหนดส่ง
-                    </FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {/* Due Date */}
+        <Form.Item
+          label={
+            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <Clock size={14} />
+              กำหนดส่ง
+            </span>
+          }
+          name="dueDate"
+        >
+          <DatePicker style={{ width: "100%" }} />
+        </Form.Item>
 
-              {/* Description */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>รายละเอียด</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="รายละเอียดเพิ่มเติมของงานนี้..."
-                        className="resize-none"
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Footer */}
-            <SheetFooter className="px-6 py-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={isPending}
-              >
-                ยกเลิก
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? "กำลังบันทึก..."
-                  : isEditing
-                    ? "บันทึกการเปลี่ยนแปลง"
-                    : "สร้างงาน"}
-              </Button>
-            </SheetFooter>
-          </form>
-        </Form>
-      </SheetContent>
-    </Sheet>
+        {/* Description */}
+        <Form.Item
+          label="รายละเอียด"
+          name="description"
+          rules={[{ max: 500, message: "รายละเอียดต้องไม่เกิน 500 ตัวอักษร" }]}
+        >
+          <Input.TextArea placeholder="รายละเอียดเพิ่มเติมของงานนี้..." rows={4} />
+        </Form.Item>
+      </Form>
+    </MaterialModal>
   );
 }

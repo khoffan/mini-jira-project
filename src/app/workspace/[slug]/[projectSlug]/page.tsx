@@ -12,9 +12,7 @@ import Task from "@/lib/models/Task";
 import BoardEdge from "@/lib/models/BoardEdge";
 import { toNestedBoardDTO, toNestedProjectDTO } from "@/lib/mappers";
 import type { IBoardLean, IProjectLean } from "@/lib/lean-types";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
+import { Tag, Progress, Divider } from "antd";
 
 interface PageProps {
   params: Promise<{ slug: string; projectSlug: string }>;
@@ -67,10 +65,7 @@ export default async function ProjectPage({ params }: PageProps) {
     const start = new Date(projectDTO.startDate).getTime();
     const end = new Date(projectDTO.endDate).getTime();
     const current = now.getTime();
-    timeProgress = Math.min(
-      Math.max(((current - start) / (end - start)) * 100, 0),
-      100,
-    );
+    timeProgress = Math.min(Math.max(((current - start) / (end - start)) * 100, 0), 100);
   }
 
   const allEdges = projectDTO.boards.flatMap((board) =>
@@ -81,11 +76,11 @@ export default async function ProjectPage({ params }: PageProps) {
     })),
   );
 
-  const statusVariant = {
-    ACTIVE: "default",
-    PAUSED: "secondary",
-    COMPLETED: "outline",
-    ARCHIVED: "secondary",
+  const statusColor = {
+    ACTIVE: "blue",
+    PAUSED: "orange",
+    COMPLETED: "green",
+    ARCHIVED: "default",
   } as const;
 
   return (
@@ -99,23 +94,58 @@ export default async function ProjectPage({ params }: PageProps) {
       />
 
       {/* Project header */}
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <Badge variant={statusVariant[projectDTO.status]}>
-                {projectDTO.status}
-              </Badge>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Flag className="h-3 w-3" />
+      <div
+        style={{ borderBottom: "1px solid #f0f0f0", backgroundColor: "#fafafa", padding: "24px" }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                marginBottom: "12px",
+                flexWrap: "wrap",
+              }}
+            >
+              <Tag color={statusColor[projectDTO.status]}>{projectDTO.status}</Tag>
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "12px",
+                  color: "#999",
+                }}
+              >
+                <Flag size={12} />
                 {projectDTO.priority}
               </span>
             </div>
-            <h1 className="text-xl font-bold tracking-tight truncate">
+            <h1
+              style={{
+                fontSize: "20px",
+                fontWeight: "bold",
+                margin: "0 0 4px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {projectDTO.title}
             </h1>
             {projectDTO.description && (
-              <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
+              <p
+                style={{
+                  fontSize: "14px",
+                  color: "#999",
+                  margin: "4px 0 0",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
                 {projectDTO.description}
               </p>
             )}
@@ -123,28 +153,49 @@ export default async function ProjectPage({ params }: PageProps) {
 
           {/* Timeline */}
           {projectDTO.startDate && projectDTO.endDate && (
-            <div className="flex items-center gap-3 bg-muted/60 rounded-lg px-4 py-2.5 shrink-0">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                  Timeline
-                </p>
-                <p className="text-xs font-medium">
-                  {format(new Date(projectDTO.startDate), "MMM d")} —{" "}
-                  {format(new Date(projectDTO.endDate), "MMM d, yyyy")}
-                </p>
-                <Progress value={timeProgress} className="h-1 mt-1.5 w-32" />
+            <>
+              <Divider style={{ margin: "8px 0" }} />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  backgroundColor: "white",
+                  borderRadius: "6px",
+                  padding: "12px 16px",
+                }}
+              >
+                <Calendar size={16} style={{ color: "#999" }} />
+                <div style={{ flex: 1 }}>
+                  <p
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "600",
+                      color: "#999",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    Timeline
+                  </p>
+                  <p style={{ fontSize: "12px", fontWeight: "500", marginBottom: "8px" }}>
+                    {format(new Date(projectDTO.startDate), "MMM d")} —{" "}
+                    {format(new Date(projectDTO.endDate), "MMM d, yyyy")}
+                  </p>
+                  <Progress percent={Math.round(timeProgress)} size="small" />
+                </div>
+                <span style={{ fontSize: "12px", fontWeight: "bold", color: "#1890ff" }}>
+                  {Math.round(timeProgress)}%
+                </span>
               </div>
-              <span className="text-xs font-bold text-primary">
-                {Math.round(timeProgress)}%
-              </span>
-            </div>
+            </>
           )}
         </div>
       </div>
 
       {/* Board content */}
-      <div className="flex-1 p-6">
+      <div style={{ flex: 1, padding: "24px" }}>
         <BoardDisplay
           boards={boardsDTO}
           edges={allEdges}

@@ -1,30 +1,10 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { Columns3 } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, Input, Button, Space, Drawer } from "antd";
 import { createBoardAction, updateBoardAction } from "./actions";
 import type { IBoard } from "@/lib/types";
 
@@ -40,14 +20,8 @@ const PRESET_COLORS = [
 
 // ─── Zod Schema ─────────────────────────────────────────────────────────────
 const boardSchema = z.object({
-  title: z
-    .string()
-    .min(1, "กรุณาระบุชื่อ board")
-    .max(80, "ชื่อ board ต้องไม่เกิน 80 ตัวอักษร"),
-  description: z
-    .string()
-    .max(300, "รายละเอียดต้องไม่เกิน 300 ตัวอักษร")
-    .optional(),
+  title: z.string().min(1, "กรุณาระบุชื่อ board").max(80, "ชื่อ board ต้องไม่เกิน 80 ตัวอักษร"),
+  description: z.string().max(300, "รายละเอียดต้องไม่เกิน 300 ตัวอักษร").optional(),
   color: z.string().min(1, "กรุณาเลือกสี"),
 });
 
@@ -77,190 +51,170 @@ export default function BoardForm({
   const router = useRouter();
   const isEditing = !!board;
   const [isPending, startTransition] = useTransition();
+  const [form] = Form.useForm();
 
-  const form = useForm<BoardFormValues>({
-    resolver: zodResolver(boardSchema),
-    defaultValues: {
-      title: board?.title ?? "",
-      description: board?.description ?? "",
-      color: board?.color ?? "#6366f1",
-    },
-  });
-
-  const watchedColor = form.watch("color");
+  const watchedColor = form.getFieldValue("color") || "#6366f1";
 
   function onSubmit(values: BoardFormValues) {
-    startTransition(async () => {
-      if (isEditing && board?.id) {
-        await updateBoardAction({
-          id: board.id,
-          title: values.title,
-          description: values.description,
-          color: values.color,
-          workspaceSlug,
-          projectSlug,
-        });
-      } else {
-        await createBoardAction({
-          title: values.title,
-          description: values.description,
-          color: values.color,
-          projectId,
-          workspaceId,
-        });
+    try {
+      boardSchema.parse(values);
+      startTransition(async () => {
+        if (isEditing && board?.id) {
+          await updateBoardAction({
+            id: board.id,
+            title: values.title,
+            description: values.description,
+            color: values.color,
+            workspaceSlug,
+            projectSlug,
+          });
+        } else {
+          await createBoardAction({
+            title: values.title,
+            description: values.description,
+            color: values.color,
+            projectId,
+            workspaceId,
+          });
+        }
+        router.refresh();
+        form.resetFields();
+        onClose();
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError && error.issues.length > 0) {
+        const fields = error.issues.map((issue) => ({
+          name: issue.path[0] as string,
+          errors: [issue.message],
+        }));
+        form.setFields(fields);
       }
-      router.refresh();
-      onClose();
-    });
-  }
-
-  function handleOpenChange(isOpen: boolean) {
-    if (!isOpen) {
-      form.reset();
-      onClose();
     }
   }
 
+  function handleDrawerClose() {
+    form.resetFields();
+    onClose();
+  }
+
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-md flex flex-col p-0 gap-0"
-      >
-        {/* Color accent bar */}
-        <div
-          className="h-1 shrink-0 transition-colors duration-300"
-          style={{ backgroundColor: watchedColor }}
-        />
-
-        {/* Header */}
-        <SheetHeader className="px-6 py-5 border-b">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
-              style={{ backgroundColor: watchedColor }}
-            >
-              <Columns3 className="h-5 w-5" />
-            </div>
-            <div>
-              <SheetTitle>
-                {isEditing ? "แก้ไข Board" : "สร้าง Board ใหม่"}
-              </SheetTitle>
-              <SheetDescription>
-                {isEditing
-                  ? "แก้ไขข้อมูลของ board"
-                  : "เพิ่ม board ใหม่ในโปรเจกต์นี้"}
-              </SheetDescription>
-            </div>
-          </div>
-        </SheetHeader>
-
-        {/* Body */}
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="flex flex-col flex-1 overflow-hidden"
+    <Drawer
+      title={
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "36px",
+              height: "36px",
+              borderRadius: "8px",
+              backgroundColor: watchedColor,
+              color: "white",
+            }}
           >
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-              {/* Title */}
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ชื่อ Board *</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="เช่น Sprint 1, Backlog, Design Review"
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <Columns3 size={20} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
+              {isEditing ? "แก้ไข Board" : "สร้าง Board ใหม่"}
+            </p>
+            <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#999" }}>
+              {isEditing ? "แก้ไขข้อมูลของ board" : "เพิ่ม board ใหม่ในโปรเจกต์นี้"}
+            </p>
+          </div>
+        </div>
+      }
+      placement="right"
+      onClose={handleDrawerClose}
+      open={open}
+      size={400}
+      styles={{
+        body: { paddingBottom: "80px" },
+      }}
+      footer={
+        <Space style={{ float: "right", gap: "8px" }}>
+          <Button onClick={handleDrawerClose} disabled={isPending}>
+            ยกเลิก
+          </Button>
+          <Button type="primary" loading={isPending} onClick={() => form.submit()}>
+            {isEditing ? "บันทึกการเปลี่ยนแปลง" : "สร้าง Board"}
+          </Button>
+        </Space>
+      }
+    >
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onSubmit}
+        initialValues={{
+          title: board?.title ?? "",
+          description: board?.description ?? "",
+          color: board?.color ?? "#6366f1",
+        }}
+      >
+        {/* Title */}
+        <Form.Item
+          label="ชื่อ Board *"
+          name="title"
+          rules={[
+            { required: true, message: "กรุณาระบุชื่อ board" },
+            { max: 80, message: "ชื่อ board ต้องไม่เกิน 80 ตัวอักษร" },
+          ]}
+        >
+          <Input placeholder="เช่น Sprint 1, Backlog, Design Review" autoFocus />
+        </Form.Item>
 
-              {/* Description */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>รายละเอียด</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="board นี้ใช้สำหรับ..."
-                        className="resize-none"
-                        rows={2}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        {/* Description */}
+        <Form.Item
+          label="รายละเอียด"
+          name="description"
+          rules={[{ max: 300, message: "รายละเอียดต้องไม่เกิน 300 ตัวอักษร" }]}
+        >
+          <Input.TextArea placeholder="board นี้ใช้สำหรับ..." rows={2} />
+        </Form.Item>
 
-              {/* Color picker */}
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>สีประจำ Board</FormLabel>
-                    <FormControl>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {PRESET_COLORS.map((c) => (
-                          <button
-                            key={c.value}
-                            type="button"
-                            onClick={() => field.onChange(c.value)}
-                            className={`h-7 w-7 rounded-full border-2 transition-all ${
-                              field.value === c.value
-                                ? "border-foreground scale-110 shadow-md"
-                                : "border-transparent hover:scale-105"
-                            }`}
-                            style={{ backgroundColor: c.value }}
-                            title={c.name}
-                          />
-                        ))}
-                        {/* Custom color */}
-                        <input
-                          type="color"
-                          value={field.value}
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="h-7 w-7 rounded-full border-0 p-0 overflow-hidden cursor-pointer"
-                          title="สีกำหนดเอง"
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+        {/* Color picker */}
+        <Form.Item
+          label="สีประจำ Board"
+          name="color"
+          rules={[{ required: true, message: "กรุณาเลือกสี" }]}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            {PRESET_COLORS.map((c) => (
+              <div
+                key={c.value}
+                onClick={() => form.setFieldValue("color", c.value)}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  backgroundColor: c.value,
+                  border: watchedColor === c.value ? "3px solid #1890ff" : "2px solid transparent",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                title={c.name}
               />
-            </div>
-
-            {/* Footer */}
-            <SheetFooter className="px-6 py-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={isPending}
-              >
-                ยกเลิก
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? "กำลังบันทึก..."
-                  : isEditing
-                    ? "บันทึกการเปลี่ยนแปลง"
-                    : "สร้าง Board"}
-              </Button>
-            </SheetFooter>
-          </form>
-        </Form>
-      </SheetContent>
-    </Sheet>
+            ))}
+            {/* Custom color */}
+            <input
+              type="color"
+              value={watchedColor}
+              onChange={(e) => form.setFieldValue("color", e.target.value)}
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                border: "2px solid #d9d9d9",
+                padding: 0,
+                cursor: "pointer",
+              }}
+              title="สีกำหนดเอง"
+            />
+          </div>
+        </Form.Item>
+      </Form>
+    </Drawer>
   );
 }

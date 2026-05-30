@@ -6,47 +6,19 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutGrid,
   ChevronDown,
-  ChevronRight,
   Plus,
-  Check,
   UserPlus,
   Settings,
   LogOut,
   FolderKanban,
-  Columns3,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Layout, Menu, Dropdown, Avatar, Tag, Button, Divider, Space } from "antd";
+import type { MenuProps } from "antd";
 import { useAuthStore } from "@/store/authStore";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
-  SidebarSeparator,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { IWorkspaceWithNestedData } from "@/lib/types";
+
+const { Sider } = Layout;
 
 interface AppSidebarProps {
   workspace: IWorkspaceWithNestedData;
@@ -57,9 +29,8 @@ export function AppSidebar({ workspace, allWorkspaces }: AppSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, clearAuth } = useAuthStore();
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
-    new Set(),
-  );
+  const [collapsed, setCollapsed] = useState(false);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   function toggleProject(projectId: string) {
     setExpandedProjects((prev) => {
@@ -99,276 +70,300 @@ export function AppSidebar({ workspace, allWorkspaces }: AppSidebarProps) {
         .slice(0, 2)
     : (user?.email?.slice(0, 2).toUpperCase() ?? "?");
 
-  return (
-    <Sidebar collapsible="icon" variant="sidebar">
-      {/* ── Header: Workspace Switcher ─────────────────── */}
-      <SidebarHeader className="px-2 py-3">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent"
-                >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-                    {workspace.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col gap-0.5 leading-none min-w-0">
-                    <span className="font-semibold text-sm truncate">
-                      {workspace.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground truncate">
-                      Workspace
-                    </span>
-                  </div>
-                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" side="bottom" className="w-64">
-                <DropdownMenuLabel className="text-xs text-muted-foreground uppercase tracking-wider">
-                  Workspaces
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {allWorkspaces.map((ws) => (
-                  <DropdownMenuItem
-                    key={ws.id}
-                    onClick={() => router.push(`/workspace/${ws.slug}`)}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                        ws.id === workspace.id
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {ws.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="truncate flex-1">{ws.name}</span>
-                    {ws.id === workspace.id && (
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                    )}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => router.push("/workspace/create")}
-                  className="gap-2 cursor-pointer"
-                >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md border-2 border-dashed border-muted-foreground/40">
-                    <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                  <span className="text-sm">สร้าง Workspace ใหม่</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
+  // Workspace switcher dropdown items
+  const workspaceMenuItems: MenuProps["items"] = [
+    {
+      type: "group",
+      label: "Workspaces",
+      children: allWorkspaces.map((ws) => ({
+        key: ws.id,
+        label: (
+          <div className="flex items-center justify-between">
+            <span>{ws.name}</span>
+            {ws.id === workspace.id && (
+              <span style={{ fontSize: "12px", marginLeft: "8px" }}>✓</span>
+            )}
+          </div>
+        ),
+        onClick: () => router.push(`/workspace/${ws.slug}`),
+      })),
+    },
+    { type: "divider" },
+    {
+      key: "create-workspace",
+      label: "+ สร้าง Workspace ใหม่",
+      onClick: () => router.push("/workspace/create"),
+    },
+  ];
 
-      <SidebarSeparator />
+  // User menu items
+  const userMenuItems: MenuProps["items"] = [
+    {
+      type: "group",
+      label: user?.name ?? "ผู้ใช้",
+      children: [
+        {
+          key: "account",
+          label: (
+            <Space size={8}>
+              <Settings style={{ fontSize: "14px" }} />
+              <span>ตั้งค่าบัญชี</span>
+            </Space>
+          ),
+          onClick: () => router.push("/account"),
+        },
+      ],
+    },
+    { type: "divider" },
+    {
+      key: "logout",
+      label: (
+        <Space size={8} style={{ color: "#ff4d4f" }}>
+          <LogOut style={{ fontSize: "14px" }} />
+          <span>ออกจากระบบ</span>
+        </Space>
+      ),
+      onClick: handleLogout,
+    },
+  ];
 
-      {/* ── Content: Project & Board Nav ─────────────────── */}
-      <SidebarContent>
-        {/* Overview link */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={pathname === `/workspace/${workspace.slug}`}
-                  tooltip="ภาพรวม"
-                  onClick={() => router.push(`/workspace/${workspace.slug}`)}
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                  <span>ภาพรวม</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+  // Build menu items for projects and boards
+  const buildMenuItems = (): MenuProps["items"] => {
+    const items: MenuProps["items"] = [
+      {
+        key: `overview`,
+        icon: <LayoutGrid style={{ fontSize: "16px" }} />,
+        label: "ภาพรวม",
+        onClick: () => router.push(`/workspace/${workspace.slug}`),
+      },
+    ];
 
-        <SidebarSeparator />
+    if (workspace.projects.length > 0) {
+      items.push({
+        type: "divider",
+      });
 
-        {/* Projects */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center justify-between pr-1">
-            <span>โปรเจกต์</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-5 w-5"
-              onClick={() => router.push(`/workspace/${workspace.slug}`)}
-              title="สร้างโปรเจกต์ใหม่"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {workspace.projects.length === 0 ? (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  ยังไม่มีโปรเจกต์
-                </p>
-              ) : (
-                workspace.projects.map((project) => {
-                  const projectPath = `/workspace/${workspace.slug}/${project.slug}`;
-                  const isProjectActive = pathname.startsWith(projectPath);
-                  const isExpanded = expandedProjects.has(project.id);
+      workspace.projects.forEach((project) => {
+        const projectPath = `/workspace/${workspace.slug}/${project.slug}`;
+        const children: MenuProps["items"] = [];
 
-                  return (
-                    <SidebarMenuItem key={project.id}>
-                      <SidebarMenuButton
-                        isActive={isProjectActive && !isExpanded}
-                        tooltip={project.title}
-                        onClick={() => toggleProject(project.id)}
-                        className="group/proj"
-                      >
-                        <FolderKanban className="h-4 w-4 shrink-0" />
-                        <span className="flex-1 truncate">{project.title}</span>
-                        {project.boards.length > 0 && (
-                          <>
-                            <Badge
-                              variant="secondary"
-                              className="h-4 px-1 text-[10px] group-hover/proj:hidden"
-                            >
-                              {project.boards.length}
-                            </Badge>
-                            {isExpanded ? (
-                              <ChevronDown className="h-3.5 w-3.5 shrink-0 hidden group-hover/proj:block" />
-                            ) : (
-                              <ChevronRight className="h-3.5 w-3.5 shrink-0 hidden group-hover/proj:block" />
-                            )}
-                          </>
-                        )}
-                      </SidebarMenuButton>
+        if (project.boards.length > 0) {
+          project.boards.forEach((board) => {
+            const boardPath = `${projectPath}/${board.slug}`;
+            children.push({
+              key: boardPath,
+              label: (
+                <div className="flex items-center gap-2">
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: "50%",
+                      backgroundColor: board.color ?? "#1890ff",
+                    }}
+                  />
+                  {board.title}
+                </div>
+              ),
+              onClick: () => router.push(boardPath),
+            });
+          });
 
-                      {/* Board sub-items */}
-                      {isExpanded && project.boards.length > 0 && (
-                        <SidebarMenuSub>
-                          {project.boards.map((board) => {
-                            const boardPath = `${projectPath}/${board.slug}`;
-                            return (
-                              <SidebarMenuSubItem key={board.id}>
-                                <SidebarMenuSubButton
-                                  isActive={pathname.startsWith(boardPath)}
-                                  onClick={() => router.push(boardPath)}
-                                >
-                                  <span
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{
-                                      backgroundColor: board.color ?? "#6366f1",
-                                    }}
-                                  />
-                                  <span className="truncate">
-                                    {board.title}
-                                  </span>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            );
-                          })}
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              onClick={() => router.push(projectPath)}
-                            >
-                              <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                              <span className="text-muted-foreground">
-                                เพิ่ม Board
-                              </span>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        </SidebarMenuSub>
-                      )}
-                    </SidebarMenuItem>
-                  );
-                })
+          children.push({
+            key: `${projectPath}-add`,
+            label: (
+              <div className="flex items-center gap-2" style={{ color: "#999" }}>
+                <Plus style={{ fontSize: "14px" }} />
+                <span>เพิ่ม Board</span>
+              </div>
+            ),
+            onClick: () => router.push(projectPath),
+          });
+        }
+
+        items.push({
+          key: projectPath,
+          icon: <FolderKanban style={{ fontSize: "16px" }} />,
+          label: (
+            <div className="flex items-center justify-between">
+              <span>{project.title}</span>
+              {project.boards.length > 0 && (
+                <Tag color="default" style={{ marginLeft: "8px" }}>
+                  {project.boards.length}
+                </Tag>
               )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
+            </div>
+          ),
+          children: children.length > 0 ? children : undefined,
+          onClick: children.length === 0 ? () => router.push(projectPath) : undefined,
+        });
+      });
+    }
 
-      {/* ── Footer: Invite + User ─────────────────── */}
-      <SidebarFooter className="gap-1 p-2">
-        <SidebarSeparator className="mb-1" />
+    return items;
+  };
 
-        {/* Invite & Settings row */}
-        <div className="flex items-center gap-1 px-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-1 justify-start gap-2 text-muted-foreground hover:text-foreground h-8"
-            onClick={handleInvite}
+  return (
+    <Sider
+      collapsible
+      collapsed={collapsed}
+      onCollapse={setCollapsed}
+      style={{
+        background: "transparent",
+        borderRight: "1px solid #f0f0f0",
+      }}
+      width={250}
+    >
+      {/* Header: Workspace Switcher */}
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid #f0f0f0" }}>
+        <Dropdown menu={{ items: workspaceMenuItems }} trigger={["click"]}>
+          <div
+            style={{
+              padding: "8px 12px",
+              borderRadius: "6px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              backgroundColor: "#fafafa",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#fafafa")}
           >
-            <UserPlus className="h-4 w-4" />
-            <span className="text-xs group-data-[collapsible=icon]:hidden">
-              เชิญสมาชิก
-            </span>
-          </Button>
-          <ThemeToggle />
-        </div>
+            <div
+              style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                backgroundColor: "#1890ff",
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "14px",
+                fontWeight: "bold",
+                flexShrink: 0,
+              }}
+            >
+              {workspace.name.charAt(0).toUpperCase()}
+            </div>
+            {!collapsed && (
+              <>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {workspace.name}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#999",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    Workspace
+                  </div>
+                </div>
+                <ChevronDown style={{ fontSize: "16px", flexShrink: 0 }} />
+              </>
+            )}
+          </div>
+        </Dropdown>
+      </div>
 
-        {/* User menu */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    {user?.image && (
-                      <AvatarImage src={user.image} alt={user.name ?? ""} />
-                    )}
-                    <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-xs font-semibold">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                    <span className="truncate font-semibold">
+      {/* Menu: Projects and Boards */}
+      <Menu
+        mode="inline"
+        items={buildMenuItems()}
+        selectedKeys={[pathname]}
+        defaultOpenKeys={Array.from(expandedProjects)}
+      />
+
+      {/* Footer: Invite and User Menu */}
+      <div
+        style={{
+          padding: "12px 8px",
+          borderTop: "1px solid #f0f0f0",
+          marginTop: "auto",
+        }}
+      >
+        <Space orientation="vertical" style={{ width: "100%" }} size={0}>
+          <Button
+            type="text"
+            block
+            icon={<UserPlus style={{ fontSize: "16px" }} />}
+            onClick={handleInvite}
+            style={{ justifyContent: "flex-start", height: "36px" }}
+          >
+            {!collapsed && "เชิญสมาชิก"}
+          </Button>
+
+          <Dropdown menu={{ items: userMenuItems }} trigger={["click"]}>
+            <div
+              style={{
+                padding: "8px 12px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+            >
+              <Avatar
+                size={32}
+                src={user?.image}
+                style={{
+                  backgroundColor: "#1890ff",
+                  flexShrink: 0,
+                }}
+              >
+                {userInitials}
+              </Avatar>
+              {!collapsed && (
+                <>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "14px",
+                        fontWeight: "600",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
                       {user?.name ?? "ผู้ใช้"}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#999",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
                       {user?.email}
-                    </span>
+                    </div>
                   </div>
-                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col gap-1">
-                    <p className="text-sm font-semibold leading-none">
-                      {user?.name ?? "ผู้ใช้"}
-                    </p>
-                    <p className="text-xs text-muted-foreground leading-none">
-                      {user?.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => router.push("/account")}
-                  className="gap-2 cursor-pointer"
-                >
-                  <Settings className="h-4 w-4" />
-                  ตั้งค่าบัญชี
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" />
-                  ออกจากระบบ
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-    </Sidebar>
+                  <ChevronDown style={{ fontSize: "16px", flexShrink: 0 }} />
+                </>
+              )}
+            </div>
+          </Dropdown>
+        </Space>
+      </div>
+    </Sider>
   );
 }

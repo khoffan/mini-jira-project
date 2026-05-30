@@ -2,18 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, LayoutList, Kanban } from "lucide-react";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import { Plus, LayoutList, Kanban, Menu } from "lucide-react";
+import { Breadcrumb, Button, Space, Divider } from "antd";
 import { useViewStore } from "@/store/use-view-store";
 import { useProjectStore } from "@/store/use-project-store";
 import { useBoardStore } from "@/store/use-board-store";
@@ -22,9 +12,10 @@ import type { IWorkspaceWithNestedData } from "@/lib/types";
 interface TopBarProps {
   workspace: IWorkspaceWithNestedData;
   onCreateProject?: () => void;
+  onToggleSidebar?: () => void;
 }
 
-export function TopBar({ workspace, onCreateProject }: TopBarProps) {
+export function TopBar({ workspace, onCreateProject, onToggleSidebar }: TopBarProps) {
   const pathname = usePathname();
   const { view, setView } = useViewStore();
   const project = useProjectStore((s) => s.project);
@@ -34,89 +25,109 @@ export function TopBar({ workspace, onCreateProject }: TopBarProps) {
   const isOnProjectPage = !!project && !board;
   const isOnWorkspacePage = !project;
 
+  const breadcrumbItems = [
+    {
+      title: (
+        <Link href={`/workspace/${workspace.slug}`} style={{ color: "#1890ff" }}>
+          {workspace.name}
+        </Link>
+      ),
+    },
+  ];
+
+  if (project) {
+    if (board) {
+      breadcrumbItems.push({
+        title: (
+          <Link href={`/workspace/${workspace.slug}/${project.slug}`} style={{ color: "#1890ff" }}>
+            {project.title}
+          </Link>
+        ),
+      });
+      breadcrumbItems.push({
+        title: <span style={{ color: "#000" }}>{board.title}</span>,
+      });
+    } else {
+      breadcrumbItems.push({
+        title: <span style={{ color: "#000" }}>{project.title}</span>,
+      });
+    }
+  }
+
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background/80 backdrop-blur-sm px-4">
+    <header
+      style={{
+        display: "flex",
+        height: "48px",
+        alignItems: "center",
+        gap: "8px",
+        borderBottom: "1px solid #f0f0f0",
+        backgroundColor: "rgba(255,255,255,0.8)",
+        backdropFilter: "blur(4px)",
+        paddingLeft: "16px",
+        paddingRight: "16px",
+        zIndex: 10,
+      }}
+    >
       {/* Sidebar toggle + breadcrumb */}
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <SidebarTrigger className="-ml-1 h-8 w-8" />
-        <Separator orientation="vertical" className="h-4" />
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        {onToggleSidebar && (
+          <Button
+            type="text"
+            icon={<Menu style={{ fontSize: "16px" }} />}
+            onClick={onToggleSidebar}
+            style={{ height: "32px", width: "32px" }}
+          />
+        )}
 
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink
-                href={`/workspace/${workspace.slug}`}
-                className="text-sm font-medium"
-              >
-                {workspace.name}
-              </BreadcrumbLink>
-            </BreadcrumbItem>
+        <Divider type="vertical" style={{ height: "16px", margin: 0 }} />
 
-            {project && (
-              <>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  {board ? (
-                    <BreadcrumbLink
-                      href={`/workspace/${workspace.slug}/${project.slug}`}
-                      className="text-sm"
-                    >
-                      {project.title}
-                    </BreadcrumbLink>
-                  ) : (
-                    <BreadcrumbPage className="text-sm font-medium">
-                      {project.title}
-                    </BreadcrumbPage>
-                  )}
-                </BreadcrumbItem>
-              </>
-            )}
-
-            {board && (
-              <>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="text-sm font-medium">
-                    {board.title}
-                  </BreadcrumbPage>
-                </BreadcrumbItem>
-              </>
-            )}
-          </BreadcrumbList>
-        </Breadcrumb>
+        <Breadcrumb items={breadcrumbItems} />
       </div>
 
       {/* Right actions */}
-      <div className="flex items-center gap-2">
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         {/* View toggle — shown when in project context (not in board) */}
         {isOnProjectPage && (
-          <div className="flex items-center rounded-lg border bg-muted p-0.5 gap-0.5">
+          <Space.Compact>
             <Button
-              variant={view === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 px-2.5"
+              type={view === "list" ? "primary" : "default"}
+              size="small"
+              icon={<LayoutList style={{ fontSize: "14px" }} />}
               onClick={() => setView("list")}
+              title="รายการ"
             >
-              <LayoutList className="h-3.5 w-3.5" />
-              <span className="text-xs hidden sm:inline">รายการ</span>
+              <span style={{ display: "none", fontSize: "12px" }}>รายการ</span>
             </Button>
             <Button
-              variant={view === "canvas" ? "secondary" : "ghost"}
-              size="sm"
-              className="h-7 gap-1.5 px-2.5"
+              type={view === "canvas" ? "primary" : "default"}
+              size="small"
+              icon={<Kanban style={{ fontSize: "14px" }} />}
               onClick={() => setView("canvas")}
+              title="บอร์ด"
             >
-              <Kanban className="h-3.5 w-3.5" />
-              <span className="text-xs hidden sm:inline">บอร์ด</span>
+              <span style={{ display: "none", fontSize: "12px" }}>บอร์ด</span>
             </Button>
-          </div>
+          </Space.Compact>
         )}
 
         {/* Create button — on workspace page */}
         {isOnWorkspacePage && onCreateProject && (
-          <Button size="sm" onClick={onCreateProject} className="gap-1.5 h-8">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">สร้างโปรเจกต์</span>
+          <Button
+            type="primary"
+            size="small"
+            icon={<Plus style={{ fontSize: "14px" }} />}
+            onClick={onCreateProject}
+          >
+            <span style={{ marginLeft: "4px" }}>สร้างโปรเจกต์</span>
           </Button>
         )}
       </div>

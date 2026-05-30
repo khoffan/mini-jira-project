@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { Button, Tag } from "antd";
 import TodoCard from "./todo-card";
 import TodoForm from "./todo-form";
 import type { ITask, TaskStatus } from "@/lib/types";
@@ -18,14 +16,7 @@ interface TodoColumnProps {
   icon: React.ReactNode;
 }
 
-export default function TodoColumn({
-  title,
-  status,
-  todos,
-  boardId,
-  color,
-  icon,
-}: TodoColumnProps) {
+export default function TodoColumn({ title, todos, boardId, color, icon }: TodoColumnProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingTodo, setEditingTodo] = useState<ITask | null>(null);
 
@@ -46,64 +37,99 @@ export default function TodoColumn({
 
   return (
     <>
-      <div className="flex flex-col w-72 shrink-0 rounded-xl border bg-muted/30">
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "288px",
+          flexShrink: 0,
+          borderRadius: "12px",
+          border: "1px solid #f0f0f0",
+          backgroundColor: "#fafafa",
+        }}
+      >
         {/* Column header */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b">
-          <div className="flex items-center gap-2">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "12px",
+            borderBottom: "1px solid #f0f0f0",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
-              className="flex h-6 w-6 items-center justify-center rounded-md text-white text-xs"
-              style={{ backgroundColor: color }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "24px",
+                height: "24px",
+                borderRadius: "6px",
+                backgroundColor: color,
+                color: "white",
+                fontSize: "12px",
+              }}
             >
               {icon}
             </div>
-            <span className="text-sm font-semibold">{title}</span>
+            <span style={{ fontSize: "14px", fontWeight: "600" }}>{title}</span>
           </div>
-          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-            {todos.length}
-          </Badge>
+          <Tag>{todos.length}</Tag>
         </div>
 
         {/* Task list */}
-        <ScrollArea className="flex-1 max-h-[calc(100vh-220px)]">
-          <div className="p-2 space-y-2">
-            {todos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-lg">
-                <p className="text-xs text-muted-foreground">ว่างเปล่า</p>
-              </div>
-            ) : (
-              todos.map((todo) => (
-                <TodoCard
-                  key={todo.id}
-                  todo={todo}
-                  boardId={boardId}
-                  onEdit={handleEdit}
-                />
-              ))
-            )}
-          </div>
-        </ScrollArea>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            maxHeight: "calc(100vh - 220px)",
+            padding: "8px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+          }}
+        >
+          {todos.length === 0 ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "32px 16px",
+                borderRadius: "8px",
+                border: "2px dashed #e8e8e8",
+                textAlign: "center",
+              }}
+            >
+              <p style={{ fontSize: "12px", color: "#999", margin: 0 }}>ว่างเปล่า</p>
+            </div>
+          ) : (
+            todos.map((todo) => (
+              <TodoCard key={todo.id} todo={todo} boardId={boardId} onEdit={handleEdit} />
+            ))
+          )}
+        </div>
 
         {/* Add task button */}
-        <div className="p-2 border-t">
+        <div style={{ padding: "8px", borderTop: "1px solid #f0f0f0" }}>
           <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-1.5 h-8 text-muted-foreground hover:text-foreground"
+            type="default"
+            size="small"
+            icon={<Plus size={14} />}
+            block
             onClick={handleCreateNew}
+            style={{ color: "#999", height: "32px" }}
           >
-            <Plus className="h-3.5 w-3.5" />
             เพิ่มงาน
           </Button>
         </div>
       </div>
 
       {/* Slide-over form */}
-      <TodoForm
-        open={showForm}
-        onClose={handleCloseForm}
-        boardId={boardId}
-        todo={editingTodo}
-      />
+      <TodoForm open={showForm} onClose={handleCloseForm} boardId={boardId} todo={editingTodo} />
     </>
   );
 }
